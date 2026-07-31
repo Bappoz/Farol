@@ -65,7 +65,7 @@
         <span class="chip {{ 'on' if job.score >= 70 else ('accent' if job.score >= 50 else '') }}">{{ job.label }}</span>
       </div>
       <div class="card-body">
-        {% for part in job.score_data.components %}
+        {% for part in job.score_data.get('components') or [] %}
         <div style="margin-bottom:10px">
           <div class="row" style="justify-content:space-between">
             <span class="small">{{ part.label }}</span>
@@ -82,8 +82,8 @@
       <div class="card-head"><b>Suas skills nesta vaga</b></div>
       <div class="card-body">
         <div class="tags">
-          {% for skill in job.score_data.matched %}<span class="chip on">{{ skill | skill }}</span>{% endfor %}
-          {% if not job.score_data.matched %}<span class="faint small">Nenhuma das skills do seu perfil aparece aqui.</span>{% endif %}
+          {% for skill in job.score_data.get('matched') or [] %}<span class="chip on">{{ skill | skill }}</span>{% endfor %}
+          {% if not job.score_data.get('matched') %}<span class="faint small">Nenhuma das skills do seu perfil aparece aqui.</span>{% endif %}
         </div>
         {% if job.score_data.missing %}
         <div style="margin-top:12px">

@@ -2,7 +2,10 @@
 {% from "_icons.html" import icon %}
 {% block title %}Vagas · Farol{% endblock %}
 {% block heading %}Vagas{% endblock %}
-{% block subheading %}{{ jobs | length }} de {{ total }} vagas na base{% endblock %}
+{% block subheading %}
+  {{ found }} vaga{{ '' if found == 1 else 's' }} no filtro · {{ total }} na base
+  {% if pages > 1 %}· página {{ pagina }} de {{ pages }}{% endif %}
+{% endblock %}
 
 {% block actions %}
 <form method="post" action="/vagas/atualizar">
@@ -32,7 +35,16 @@
       <input type="number" id="min" name="min" min="0" max="100" step="5" value="{{ filters.min }}" style="width:90px">
     </div>
     <div class="field">
-      <label for="local">Localização</label>
+      <label for="regiao">Região</label>
+      <select id="regiao" name="regiao" data-autosubmit>
+        <option value="">todas</option>
+        {% for value, label in region_labels.items() %}
+        <option value="{{ value }}" {{ 'selected' if filters.regiao == value }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="local">Localização exata</label>
       <select id="local" name="local" data-autosubmit>
         <option value="">todas</option>
         {% for loc in locations %}
@@ -50,8 +62,15 @@
       </select>
     </div>
     <div class="field">
-      <label for="salario">Salário mín. (US$/ano)</label>
-      <input type="number" id="salario" name="salario" min="0" step="1000" value="{{ filters.salario or '' }}" style="width:120px" placeholder="40000">
+      <label for="salario">Salário mínimo (ano)</label>
+      <div class="row" style="gap:6px">
+        <input type="number" id="salario" name="salario" min="0" step="1000" value="{{ filters.salario or '' }}" style="width:110px" placeholder="40000">
+        <select name="moeda" data-autosubmit style="width:74px">
+          {% for code, symbol in currency_labels.items() %}
+          <option value="{{ code }}" {{ 'selected' if filters.moeda == code }}>{{ symbol }}</option>
+          {% endfor %}
+        </select>
+      </div>
     </div>
     <div class="field">
       <label for="estado">Estado</label>
@@ -93,9 +112,10 @@
           </div>
         </a>
         <div class="why tags">
-          {% for skill in job.score_data.matched[:7] %}<span class="chip on">{{ skill | skill }}</span>{% endfor %}
-          {% for skill in job.score_data.missing[:4] %}<span class="chip">{{ skill | skill }}</span>{% endfor %}
-          {% for flag in job.score_data.flags %}<span class="chip warn">{{ flag }}</span>{% endfor %}
+          {# score_data tem DEFAULT '{}' no schema: nunca indexe sem o get #}
+          {% for skill in (job.score_data.get('matched') or [])[:7] %}<span class="chip on">{{ skill | skill }}</span>{% endfor %}
+          {% for skill in (job.score_data.get('missing') or [])[:4] %}<span class="chip">{{ skill | skill }}</span>{% endfor %}
+          {% for flag in job.score_data.get('flags') or [] %}<span class="chip warn">{{ flag }}</span>{% endfor %}
         </div>
       </div>
       <div class="actions">
@@ -118,9 +138,35 @@
     {% else %}
     <div class="empty">
       <b>Nada por aqui</b>
-      {% if total %}Afrouxe o fit mínimo ou limpe a busca.{% else %}Clique em “Atualizar vagas”. Configure os termos em Ajustes.{% endif %}
+      {% if not total %}
+        Clique em “Atualizar vagas”. Configure os termos em Ajustes.
+      {% elif filters.modo in ('presencial', 'hibrido') %}
+        Nenhuma vaga {{ work_mode_labels[filters.modo] | lower }} na base. As cinco fontes embutidas
+        são portais de trabalho remoto — só a Arbeitnow publica vaga de escritório, e ainda assim
+        poucas. Para vaga {{ work_mode_labels[filters.modo] | lower }} de verdade, adicione em
+        Ajustes o feed RSS de um portal que anuncie presencial.
+      {% elif filters.salario %}
+        Nenhuma vaga com salário informado a partir de
+        {{ currency_labels[filters.moeda] }} {{ '{:,}'.format(filters.salario).replace(',', '.') }}/ano.
+        A maioria dos anúncios não publica faixa salarial, e vaga sem faixa fica fora deste filtro
+        em vez de ser chutada — limpe o campo para vê-las.
+      {% else %}
+        Afrouxe o fit mínimo ou limpe os filtros.
+      {% endif %}
     </div>
     {% endfor %}
   </div>
+
+  {% if pages > 1 %}
+  <div class="row" style="justify-content:space-between; padding:12px 14px; border-top:1px solid var(--border)">
+    {% if pagina > 1 %}
+    <a class="btn btn-sm" href="/vagas?{{ page_qs }}&pagina={{ pagina - 1 }}">← anteriores</a>
+    {% else %}<span></span>{% endif %}
+    <span class="small faint">página {{ pagina }} de {{ pages }}</span>
+    {% if pagina < pages %}
+    <a class="btn btn-sm" href="/vagas?{{ page_qs }}&pagina={{ pagina + 1 }}">próximas →</a>
+    {% else %}<span></span>{% endif %}
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

@@ -319,23 +319,28 @@ def test_banco_antigo_ganha_a_coluna_de_idioma():
     assert linha["lang"] == "pt"  # currículo que já existia continua em português
 
 
+def _recria_jobs_sem_colunas_derivadas(conn) -> None:
+    """Recria a tabela jobs como era antes de work_mode/region/salary_* existirem."""
+    conn.execute("DROP TABLE jobs")
+    conn.execute(
+        """CREATE TABLE jobs (
+               id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL, source_id TEXT NOT NULL,
+               fingerprint TEXT NOT NULL, title TEXT NOT NULL, company TEXT NOT NULL DEFAULT '',
+               url TEXT NOT NULL DEFAULT '', apply_url TEXT NOT NULL DEFAULT '',
+               location TEXT NOT NULL DEFAULT '', remote INTEGER NOT NULL DEFAULT 1,
+               salary TEXT NOT NULL DEFAULT '', tags TEXT NOT NULL DEFAULT '[]',
+               description TEXT NOT NULL DEFAULT '', published_at TEXT,
+               first_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+               last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+               score INTEGER NOT NULL DEFAULT 0, score_data TEXT NOT NULL DEFAULT '{}',
+               state TEXT NOT NULL DEFAULT 'novo')"""
+    )
+
+
 def test_banco_antigo_ganha_as_colunas_de_modelo_e_salario():
     """Idem para jobs: banco de antes do filtro de modelo/salário não pode quebrar."""
     with db.connect() as conn:
-        conn.execute("DROP TABLE jobs")
-        conn.execute(  # recria a tabela como era antes de work_mode/salary_min/salary_max existirem
-            """CREATE TABLE jobs (
-                   id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL, source_id TEXT NOT NULL,
-                   fingerprint TEXT NOT NULL, title TEXT NOT NULL, company TEXT NOT NULL DEFAULT '',
-                   url TEXT NOT NULL DEFAULT '', apply_url TEXT NOT NULL DEFAULT '',
-                   location TEXT NOT NULL DEFAULT '', remote INTEGER NOT NULL DEFAULT 1,
-                   salary TEXT NOT NULL DEFAULT '', tags TEXT NOT NULL DEFAULT '[]',
-                   description TEXT NOT NULL DEFAULT '', published_at TEXT,
-                   first_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
-                   last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
-                   score INTEGER NOT NULL DEFAULT 0, score_data TEXT NOT NULL DEFAULT '{}',
-                   state TEXT NOT NULL DEFAULT 'novo')"""
-        )
+        _recria_jobs_sem_colunas_derivadas(conn)
         conn.execute(
             "INSERT INTO jobs (source, source_id, fingerprint, title) VALUES ('x', '1', 'fp', 'Vaga antiga')"
         )
@@ -345,6 +350,41 @@ def test_banco_antigo_ganha_as_colunas_de_modelo_e_salario():
     linha = db.one("SELECT * FROM jobs WHERE title = 'Vaga antiga'")
     assert linha["work_mode"] == "remoto"
     assert linha["salary_min"] is None and linha["salary_max"] is None
+
+
+def test_migracao_recalcula_modo_das_vagas_que_ja_estavam_no_banco():
+    """O DEFAULT do ALTER TABLE marcaria toda vaga como remota — e aí presencial vinha vazio."""
+    with db.connect() as conn:
+        _recria_jobs_sem_colunas_derivadas(conn)
+        conn.execute(
+            """INSERT INTO jobs (source, source_id, fingerprint, title, location, remote, salary)
+               VALUES ('arbeitnow', '1', 'a', 'Dev presencial', 'Berlin', 0, 'EUR 50.000 - 70.000')"""
+        )
+        conn.execute(
+            """INSERT INTO jobs (source, source_id, fingerprint, title, location, remote, salary)
+               VALUES ('arbeitnow', '2', 'b', 'Dev híbrido', 'São Paulo (híbrido)', 0, '')"""
+        )
+        conn.execute(
+            """INSERT INTO jobs (source, source_id, fingerprint, title, location, remote, salary)
+               VALUES ('remotive', '3', 'c', 'Dev remoto', 'Brazil', 1, 'US$ 40.000')"""
+        )
+
+    db.bootstrap()
+
+    modos = {r["title"]: r["work_mode"] for r in db.query("SELECT title, work_mode FROM jobs")}
+    assert modos == {
+        "Dev presencial": "presencial",
+        "Dev híbrido": "hibrido",
+        "Dev remoto": "remoto",
+    }
+
+    presencial = db.one("SELECT * FROM jobs WHERE title = 'Dev presencial'")
+    assert presencial["region"] == "outros"
+    assert (presencial["salary_min"], presencial["salary_currency"]) == (50000, "EUR")
+
+    remoto = db.one("SELECT region, salary_currency FROM jobs WHERE title = 'Dev remoto'")
+    assert remoto["region"] == "brasil"
+    assert remoto["salary_currency"] == "USD"
 
 
 def test_kanban_move_por_json(client, com_vagas):

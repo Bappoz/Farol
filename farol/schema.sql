@@ -55,11 +55,13 @@ CREATE TABLE IF NOT EXISTS jobs (
     url           TEXT NOT NULL DEFAULT '',
     apply_url     TEXT NOT NULL DEFAULT '',
     location      TEXT NOT NULL DEFAULT '',
-    remote        INTEGER NOT NULL DEFAULT 1,
-    work_mode     TEXT NOT NULL DEFAULT 'remoto', -- remoto | hibrido | presencial (ver scoring.work_mode)
-    salary        TEXT NOT NULL DEFAULT '',
-    salary_min    INTEGER,                        -- USD/ano, melhor esforço (ver scoring.salary_range)
-    salary_max    INTEGER,
+    remote          INTEGER NOT NULL DEFAULT 1,
+    work_mode       TEXT NOT NULL DEFAULT 'remoto', -- remoto | hibrido | presencial (scoring.work_mode)
+    region          TEXT NOT NULL DEFAULT 'outros', -- brasil | latam | mundial | outros (scoring.region)
+    salary          TEXT NOT NULL DEFAULT '',
+    salary_min      INTEGER,                        -- valor anual, melhor esforço (scoring.salary_range)
+    salary_max      INTEGER,
+    salary_currency TEXT NOT NULL DEFAULT '',       -- USD | EUR | GBP | BRL | '' quando indefinida
     tags          TEXT NOT NULL DEFAULT '[]',
     description   TEXT NOT NULL DEFAULT '',
     published_at  TEXT,

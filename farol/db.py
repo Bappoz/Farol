@@ -77,13 +77,23 @@ MIGRATIONS: dict[str, dict[str, str]] = {
     },
     "jobs": {
         "work_mode": "TEXT NOT NULL DEFAULT 'remoto'",
+        "region": "TEXT NOT NULL DEFAULT 'outros'",
         "salary_min": "INTEGER",
         "salary_max": "INTEGER",
+        "salary_currency": "TEXT NOT NULL DEFAULT ''",
     },
 }
 
+# Colunas derivadas do conteúdo da vaga: o DEFAULT do ALTER TABLE não serve como
+# valor final (marcaria toda vaga já existente como remota, e aí o filtro de
+# presencial/híbrido devolveria lista vazia). Quando uma delas nasce, recalculamos
+# a partir das linhas que já estão no banco.
+DERIVED_JOB_COLUMNS = {"work_mode", "region", "salary_min", "salary_max", "salary_currency"}
 
-def _migrate(conn: sqlite3.Connection) -> None:
+
+def _migrate(conn: sqlite3.Connection) -> set[str]:
+    """Acrescenta colunas que faltam. Devolve os nomes recém-criados como 'tabela.coluna'."""
+    added: set[str] = set()
     for table, columns in MIGRATIONS.items():
         existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
         if not existing:
@@ -91,6 +101,25 @@ def _migrate(conn: sqlite3.Connection) -> None:
         for name, ddl in columns.items():
             if name not in existing:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
+                added.add(f"{table}.{name}")
+    return added
+
+
+def _backfill_jobs(conn: sqlite3.Connection) -> int:
+    """Recalcula as colunas derivadas das vagas já gravadas. Devolve quantas mudaram."""
+    from . import scoring  # local: evita acoplar db a scoring no import time
+
+    updated = 0
+    for row in conn.execute("SELECT * FROM jobs").fetchall():
+        job = dict(row)
+        low, high, currency = scoring.salary_range(job.get("salary")) or (None, None, "")
+        conn.execute(
+            """UPDATE jobs SET work_mode = ?, region = ?, salary_min = ?, salary_max = ?,
+                               salary_currency = ? WHERE id = ?""",
+            (scoring.work_mode(job), scoring.region(job), low, high, currency, job["id"]),
+        )
+        updated += 1
+    return updated
 
 
 def bootstrap() -> None:
@@ -98,7 +127,9 @@ def bootstrap() -> None:
     schema = (PKG_DIR / "schema.sql").read_text(encoding="utf-8")
     with connect() as conn:
         conn.executescript(schema)
-        _migrate(conn)
+        added = _migrate(conn)
+        if any(f"jobs.{column}" in added for column in DERIVED_JOB_COLUMNS):
+            _backfill_jobs(conn)
         conn.execute("INSERT OR IGNORE INTO profile (id) VALUES (1)")
         for key, value in DEFAULT_SETTINGS.items():
             conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (key, value))

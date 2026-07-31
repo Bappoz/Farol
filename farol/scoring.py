@@ -24,6 +24,34 @@ WORK_MODE_LABELS = {"remoto": "Remoto", "hibrido": "Híbrido", "presencial": "Pr
 # as fontes só marcam remote:boolean — híbrido só aparece se o texto disser
 HYBRID_MARKERS = ["hibrido", "hibrida", "hybrid"]
 
+# Região ampla da vaga: agrupa os valores literais de `location`, que variam muito
+# entre portais ("Brazil", "Brazil, Latin America", "Worldwide", "Berlin"...).
+REGIONS = ["brasil", "latam", "mundial", "outros"]
+REGION_LABELS = {
+    "brasil": "Brasil",
+    "latam": "América Latina",
+    "mundial": "Mundial / sem restrição",
+    "outros": "Outra região",
+}
+
+# Moedas reconhecidas no texto livre de salário. Sem conversão entre elas: o app
+# não inventa câmbio — guarda o valor na moeda original e o filtro compara igual
+# com igual. Moeda não reconhecida fica de fora do filtro em vez de virar dólar.
+SALARY_CURRENCIES = {
+    "USD": ["us$", "usd", "u$s", "$"],
+    "EUR": ["eur", "€"],
+    "GBP": ["gbp", "£"],
+    "BRL": ["r$", "brl"],
+}
+SALARY_CURRENCY_LABELS = {"USD": "US$", "EUR": "€", "GBP": "£", "BRL": "R$"}
+
+# marcadores de pagamento mensal — normalizamos para anual multiplicando por 12,
+# que é aritmética, não estimativa
+MONTHLY_MARKERS = [
+    "/mes", "/mês", "/month", "/mo", "por mes", "por mês", "per month", "ao mes", "ao mês",
+    "mensal", "monthly",
+]
+
 REGION_TERMS = {
     "brazil": ["brazil", "brasil", "latam", "latin america", "america latina", "south america",
                "worldwide", "anywhere", "global", "remote", "americas"],
@@ -68,15 +96,49 @@ def work_mode(job: dict[str, Any]) -> str:
     return "remoto" if job.get("remote") else "presencial"
 
 
+def region(job: dict[str, Any]) -> str:
+    """Agrupa a localização da vaga em brasil | latam | mundial | outros.
+
+    Olha só `location` (e o título, onde alguns portais repetem a restrição): a
+    descrição inteira citaria "Brazil" em qualquer menção solta e classificaria
+    errado. Restrição explícita a outro país vence tudo.
+    """
+    where = sk.normalize(f"{job.get('location') or ''} {job.get('title') or ''}")
+    if any(sk.normalize(b) in where for b in REGION_BLOCKERS):
+        return "outros"
+    if any(term in where for term in ("brazil", "brasil")):
+        return "brasil"
+    if any(term in where for term in ("latam", "latin america", "america latina", "south america",
+                                      "americas")):
+        return "latam"
+    if any(term in where for term in ("worldwide", "anywhere", "global", "remote", "remoto")):
+        return "mundial"
+    return "outros"
+
+
 _SALARY_NUMBER = re.compile(r"\d[\d.,]*")
 
 
-def salary_range(raw: str | None) -> tuple[int, int] | None:
-    """(mínimo, máximo) em USD/ano a partir do texto livre de salário — melhor esforço.
+def salary_currency(raw: str) -> str:
+    """Sigla da moeda citada no texto, ou '' quando não dá para saber.
 
-    Só reconhece números com ponto ou vírgula como separador de milhar, que é o formato
-    usado por Remotive, RemoteOK e Himalayas. Vaga sem número reconhecível fica de fora
-    do filtro de salário — não vira zero.
+    O símbolo `$` sozinho é tratado como dólar por ser o uso dominante nesses
+    portais, mas `R$` é testado antes justamente para não cair aqui.
+    """
+    text = (raw or "").lower()
+    for code in ("BRL", "EUR", "GBP", "USD"):  # BRL antes de USD: "R$" contém "$"
+        if any(marker in text for marker in SALARY_CURRENCIES[code]):
+            return code
+    return ""
+
+
+def salary_range(raw: str | None) -> tuple[int, int, str] | None:
+    """(mínimo, máximo, moeda) em valor anual a partir do texto livre de salário.
+
+    Melhor esforço, e explícito sobre o que não sabe: valor mensal é multiplicado
+    por 12 (aritmética, não estimativa) e a moeda vem como '' quando o texto não
+    diz qual é — nesse caso a vaga fica fora do filtro de salário em vez de ser
+    comparada como se fosse dólar. Vaga sem número reconhecível devolve None.
     """
     if not raw:
         return None
@@ -87,7 +149,10 @@ def salary_range(raw: str | None) -> tuple[int, int] | None:
     ]
     if not numbers:
         return None
-    return min(numbers), max(numbers)
+    # substring simples, não has_marker: "/month" vem colado no número ("4.000/month")
+    lowered = (raw or "").lower()
+    factor = 12 if any(marker in lowered for marker in MONTHLY_MARKERS) else 1
+    return min(numbers) * factor, max(numbers) * factor, salary_currency(raw)
 
 
 def score_job(job: dict[str, Any], profile: dict[str, Any], settings: dict[str, str]) -> dict[str, Any]:

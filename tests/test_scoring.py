@@ -126,18 +126,53 @@ def test_modo_presencial_quando_remote_falso_e_sem_marcador():
 
 
 def test_salario_extrai_faixa_do_texto_formatado():
-    assert scoring.salary_range("US$ 80.000–120.000/ano") == (80000, 120000)
+    assert scoring.salary_range("US$ 80.000–120.000/ano") == (80000, 120000, "USD")
 
 
 def test_salario_extrai_faixa_de_texto_cru_com_moeda():
-    assert scoring.salary_range("USD 40.000 - 60.000") == (40000, 60000)
+    assert scoring.salary_range("USD 40.000 - 60.000") == (40000, 60000, "USD")
 
 
 def test_salario_um_numero_vira_faixa_igual():
-    assert scoring.salary_range("US$ 90.000/ano") == (90000, 90000)
+    assert scoring.salary_range("US$ 90.000/ano") == (90000, 90000, "USD")
 
 
 def test_salario_sem_numero_reconhecivel_e_none():
     assert scoring.salary_range("Competitive") is None
     assert scoring.salary_range("") is None
     assert scoring.salary_range(None) is None
+
+
+def test_salario_em_euro_nao_e_tratado_como_dolar():
+    assert scoring.salary_range("EUR 50.000 - 70.000") == (50000, 70000, "EUR")
+    assert scoring.salary_range("€ 60.000/ano") == (60000, 60000, "EUR")
+
+
+def test_salario_em_real_nao_cai_no_dolar_pelo_cifrao():
+    assert scoring.salary_range("R$ 4.000 - 6.000/mês") == (48000, 72000, "BRL")
+
+
+def test_salario_mensal_e_normalizado_para_anual():
+    assert scoring.salary_range("US$ 5.000/month") == (60000, 60000, "USD")
+
+
+def test_salario_sem_moeda_declarada_fica_indefinido():
+    assert scoring.salary_range("40.000 - 60.000") == (40000, 60000, "")
+
+
+def test_regiao_classifica_pelo_campo_de_localizacao():
+    assert scoring.region({"location": "Brazil", "title": "Dev"}) == "brasil"
+    assert scoring.region({"location": "Brazil, Latin America", "title": "Dev"}) == "brasil"
+    assert scoring.region({"location": "Latin America", "title": "Dev"}) == "latam"
+    assert scoring.region({"location": "Worldwide", "title": "Dev"}) == "mundial"
+    assert scoring.region({"location": "Berlin", "title": "Dev"}) == "outros"
+
+
+def test_regiao_respeita_restricao_explicita_a_outro_pais():
+    assert scoring.region({"location": "US only", "title": "Dev"}) == "outros"
+
+
+def test_regiao_ignora_mencao_solta_na_descricao():
+    """'Brazil' citado no corpo do anúncio não transforma vaga de Berlim em vaga BR."""
+    job = {"location": "Berlin", "title": "Dev", "description": "Our team spans Brazil and Spain."}
+    assert scoring.region(job) == "outros"

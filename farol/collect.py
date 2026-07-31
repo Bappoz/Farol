@@ -50,27 +50,28 @@ def _upsert(conn, item: dict[str, Any], profile: dict, settings: dict) -> str:
         verdict = "nova"
 
     result = scoring.score_job(item, profile, settings)
-    mode = scoring.work_mode(item)
-    salary_min, salary_max = scoring.salary_range(item["salary"]) or (None, None)
+    salary_min, salary_max, currency = scoring.salary_range(item["salary"]) or (None, None, "")
     payload = (
         item["title"], item["company"], item["url"], item["apply_url"], item["location"],
-        item["remote"], mode, item["salary"], salary_min, salary_max, db.dumps(item["tags"]),
-        item["description"], item["published_at"], result["score"], db.dumps(result), fp,
+        item["remote"], scoring.work_mode(item), scoring.region(item), item["salary"],
+        salary_min, salary_max, currency, db.dumps(item["tags"]), item["description"],
+        item["published_at"], result["score"], db.dumps(result), fp,
     )
     if existing is None:
         conn.execute(
             """INSERT INTO jobs (title, company, url, apply_url, location, remote, work_mode,
-                                 salary, salary_min, salary_max, tags, description, published_at,
-                                 score, score_data, fingerprint, source, source_id)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                                 region, salary, salary_min, salary_max, salary_currency, tags,
+                                 description, published_at, score, score_data, fingerprint,
+                                 source, source_id)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             payload + (item["source"], item["source_id"]),
         )
     else:
         conn.execute(
             """UPDATE jobs SET title=?, company=?, url=?, apply_url=?, location=?, remote=?,
-                               work_mode=?, salary=?, salary_min=?, salary_max=?, tags=?,
-                               description=?, published_at=?, score=?, score_data=?,
-                               fingerprint=?, last_seen_at=datetime('now')
+                               work_mode=?, region=?, salary=?, salary_min=?, salary_max=?,
+                               salary_currency=?, tags=?, description=?, published_at=?, score=?,
+                               score_data=?, fingerprint=?, last_seen_at=datetime('now')
                WHERE id=?""",
             payload + (existing["id"],),
         )
@@ -236,12 +237,13 @@ def rescore() -> int:
             job = dict(row)
             job["tags"] = db.loads(job.get("tags"), [])
             result = scoring.score_job(job, profile, settings)
-            salary_min, salary_max = scoring.salary_range(job.get("salary")) or (None, None)
+            salary_min, salary_max, currency = scoring.salary_range(job.get("salary")) or (None, None, "")
             conn.execute(
-                """UPDATE jobs SET score = ?, score_data = ?, work_mode = ?, salary_min = ?,
-                                   salary_max = ? WHERE id = ?""",
-                (result["score"], db.dumps(result), scoring.work_mode(job),
-                 salary_min, salary_max, job["id"]),
+                """UPDATE jobs SET score = ?, score_data = ?, work_mode = ?, region = ?,
+                                   salary_min = ?, salary_max = ?, salary_currency = ?
+                   WHERE id = ?""",
+                (result["score"], db.dumps(result), scoring.work_mode(job), scoring.region(job),
+                 salary_min, salary_max, currency, job["id"]),
             )
             updated += 1
     return updated

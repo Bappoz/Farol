@@ -412,6 +412,70 @@ def test_traducao_fica_no_curriculo_e_nao_no_perfil(client, com_vagas, perfil):
     assert "Library API" in client.get(f"/curriculos/{resume_id}/imprimir").text
 
 
+def test_modelo_de_curriculo_e_escolhido_na_criacao(client, com_vagas, perfil):
+    criar = client.post(
+        "/curriculos", data={"name": "CV moderno", "lang": "pt", "template": "moderno"},
+        follow_redirects=False,
+    )
+    resume_id = int(criar.headers["location"].split("/curriculos/")[1].split("?")[0])
+    assert db.one("SELECT template FROM resumes WHERE id = ?", (resume_id,))["template"] == "moderno"
+
+    impresso = client.get(f"/curriculos/{resume_id}/imprimir").text
+    assert 'class="sheet t-moderno"' in impresso
+
+
+def test_modelo_padrao_e_o_recomendado_para_ats(client, perfil):
+    criar = client.post("/curriculos", data={"name": "CV"}, follow_redirects=False)
+    resume_id = int(criar.headers["location"].split("/curriculos/")[1].split("?")[0])
+    assert db.one("SELECT template FROM resumes WHERE id = ?", (resume_id,))["template"] == "sober"
+    assert resume_mod.TEMPLATES["sober"]["recommended"] is True
+    assert sum(1 for m in resume_mod.TEMPLATES.values() if m["recommended"]) == 1
+
+
+def test_modelo_invalido_cai_no_padrao(client, perfil):
+    criar = client.post(
+        "/curriculos", data={"name": "CV", "template": "../etc/passwd"}, follow_redirects=False
+    )
+    resume_id = int(criar.headers["location"].split("/curriculos/")[1].split("?")[0])
+    assert db.one("SELECT template FROM resumes WHERE id = ?", (resume_id,))["template"] == "sober"
+
+
+def test_trocar_de_modelo_nao_perde_o_texto_escrito(client, perfil):
+    criar = client.post("/curriculos", data={"name": "CV", "template": "sober"}, follow_redirects=False)
+    resume_id = int(criar.headers["location"].split("/curriculos/")[1].split("?")[0])
+
+    client.post(
+        f"/curriculos/{resume_id}",
+        data={"name": "CV", "lang": "pt", "template": "compacto",
+              "headline": "Dev júnior", "summary": "Resumo que eu escrevi.",
+              "skills": ["python"]},
+        follow_redirects=False,
+    )
+
+    linha = db.one("SELECT template, data FROM resumes WHERE id = ?", (resume_id,))
+    assert linha["template"] == "compacto"
+    assert db.loads(linha["data"])["summary"] == "Resumo que eu escrevi."
+
+
+def test_banco_antigo_ganha_a_coluna_de_modelo():
+    with db.connect() as conn:
+        conn.execute("DROP TABLE resumes")
+        conn.execute(
+            """CREATE TABLE resumes (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,
+                   job_id INTEGER, application_id INTEGER, lang TEXT NOT NULL DEFAULT 'pt',
+                   kind TEXT NOT NULL DEFAULT 'montado', file TEXT NOT NULL DEFAULT '',
+                   data TEXT NOT NULL DEFAULT '{}', letter TEXT NOT NULL DEFAULT '',
+                   created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                   updated_at TEXT NOT NULL DEFAULT (datetime('now')))"""
+        )
+        conn.execute("INSERT INTO resumes (name) VALUES ('CV sem modelo')")
+
+    db.bootstrap()
+
+    assert db.one("SELECT template FROM resumes WHERE name = 'CV sem modelo'")["template"] == "sober"
+
+
 def test_remontar_descarta_edicoes(client, com_vagas, perfil):
     criar = client.post("/curriculos", data={"name": "CV", "lang": "pt"}, follow_redirects=False)
     resume_id = int(criar.headers["location"].split("/curriculos/")[1].split("?")[0])

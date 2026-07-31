@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS resumes (
     job_id         INTEGER REFERENCES jobs (id) ON DELETE SET NULL,
     application_id INTEGER REFERENCES applications (id) ON DELETE SET NULL,
     lang           TEXT NOT NULL DEFAULT 'pt',   -- pt | en (ver db.MIGRATIONS)
+    template       TEXT NOT NULL DEFAULT 'sober',   -- modelo de impressão (resume.TEMPLATES)
     kind           TEXT NOT NULL DEFAULT 'montado', -- montado (editor) | arquivo (PDF seu)
     file           TEXT NOT NULL DEFAULT '',        -- caminho relativo ao diretório de dados
     data           TEXT NOT NULL DEFAULT '{}',

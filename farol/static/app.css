@@ -421,8 +421,29 @@ table.data tr:hover td { background: var(--surface-2); }
 .sheet ul { margin: 4px 0 0 16px; padding: 0; }
 .sheet ul li { margin-bottom: 2px; }
 .sheet .skills-line { color: #2a2820; }
+/* Modelos de currículo (resume.TEMPLATES). Só apresentação: o conteúdo do
+   documento é o mesmo em todos, então trocar de modelo nunca perde texto.
+   `t-sober` é o estilo base acima — não precisa de regra própria. */
+
+.sheet.t-compacto { padding: 34px 40px; font-size: 11.5px; line-height: 1.4; }
+.sheet.t-compacto h1 { font-size: 18px; }
+.sheet.t-compacto h2 { margin: 13px 0 6px; }
+.sheet.t-compacto .entry { margin-bottom: 7px; }
+
+.sheet.t-destaque h1 { color: #7a3d00; }
+.sheet.t-destaque h2 { color: #7a3d00; border-bottom-color: #e6c9a8; }
+
+.sheet.t-moderno {
+  font-family: Inter, "Helvetica Neue", Arial, sans-serif; font-size: 12px;
+}
+.sheet.t-moderno h1 { font-size: 27px; font-weight: 600; letter-spacing: -0.02em; }
+.sheet.t-moderno h2 {
+  border-bottom: none; border-left: 3px solid #16160f; padding: 0 0 0 8px;
+  color: #16160f; font-weight: 600; letter-spacing: 0.08em; margin: 22px 0 8px;
+}
+
 .print-bar {
-  position: sticky; top: 0; display: flex; gap: 8px; align-items: center;
+  position: sticky; top: 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
   padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border);
 }
 

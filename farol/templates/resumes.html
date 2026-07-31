@@ -19,6 +19,14 @@
           {% for code, label in langs.items() %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
         </select>
       </div>
+      <div class="field" style="min-width:170px">
+        <label for="template">Modelo</label>
+        <select id="template" name="template">
+          {% for code, meta in resume_templates.items() %}
+          <option value="{{ code }}">{{ meta.label }}{{ ' (recomendado)' if meta.recommended }}</option>
+          {% endfor %}
+        </select>
+      </div>
       <div class="field" style="flex:1; min-width:220px">
         <label for="job_id">Direcionado a uma vaga (opcional)</label>
         <select id="job_id" name="job_id">
@@ -30,6 +38,13 @@
       </div>
       <button class="btn btn-primary">{{ icon('plus') }} Criar</button>
     </form>
+    <p class="small faint" style="margin-top:8px">
+      {% for code, meta in resume_templates.items() if meta.recommended %}
+      <b>{{ meta.label }}</b> é o modelo recomendado — {{ meta.hint }} Se o anúncio manda subir o
+      currículo num formulário, é quase certo que um filtro automático vai ler antes de uma pessoa;
+      escolha esse. Os outros valem quando você sabe que alguém vai abrir o PDF direto.
+      {% endfor %}
+    </p>
     <p class="small faint" style="margin-top:8px">
       A lista mostra as vagas que estão no seu pipeline. O conteúdo vem do Perfil — se estiver vazio, preencha lá primeiro.
       Em inglês, o app troca os títulos das seções e o nome das competências; o texto que você escreveu continua
@@ -76,7 +91,7 @@
   <div class="card-body tight">
     <table class="data">
       <thead>
-        <tr><th>Nome</th><th>Idioma</th><th>Direcionado a</th><th>Atualizado</th><th></th></tr>
+        <tr><th>Nome</th><th>Idioma</th><th>Modelo</th><th>Direcionado a</th><th>Atualizado</th><th></th></tr>
       </thead>
       <tbody>
         {% for item in resumes %}
@@ -86,6 +101,10 @@
             {% if item.kind == 'arquivo' %}<span class="chip">PDF seu</span>{% endif %}
           </td>
           <td><span class="chip">{{ 'EN' if item.lang == 'en' else 'PT' }}</span></td>
+          <td>
+            {% if item.kind == 'arquivo' %}<span class="faint small">—</span>
+            {% else %}<span class="chip">{{ resume_templates.get(item.template, {}).get('label', item.template) }}</span>{% endif %}
+          </td>
           <td class="muted">{% if item.job_title %}{{ item.job_title }} · {{ item.job_company }}{% else %}—{% endif %}</td>
           <td class="muted nowrap">{{ item.updated_at[:16].replace('T', ' ') }}</td>
           <td class="nowrap" style="text-align:right">

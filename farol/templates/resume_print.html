@@ -12,10 +12,11 @@
   <a class="btn" href="/curriculos/{{ resume.id }}">Voltar</a>
   <button class="btn btn-primary" onclick="window.print()">Salvar como PDF</button>
   <span class="chip">{{ 'inglês' if lang == 'en' else 'português' }}</span>
+  <span class="chip">{{ templates[template].label }}{% if templates[template].recommended %} · recomendado{% endif %}</span>
   <span class="small faint">No diálogo de impressão escolha “Salvar como PDF”, margens padrão, sem cabeçalho e rodapé.</span>
 </div>
 
-<article class="sheet">
+<article class="sheet t-{{ template }}">
   <header>
     <h1>{{ data.name }}</h1>
     <div class="contact">

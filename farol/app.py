@@ -497,7 +497,7 @@ def resumes_list(request: Request) -> HTMLResponse:
            JOIN applications a ON a.job_id = j.id ORDER BY a.updated_at DESC LIMIT 30"""
     )]
     return render(request, "resumes.html", nav="curriculos", resumes=items, jobs=jobs,
-                  langs=resume_mod.LANGS)
+                  langs=resume_mod.LANGS, resume_templates=resume_mod.TEMPLATES)
 
 
 @app.post("/curriculos")
@@ -510,6 +510,7 @@ async def resume_create(request: Request) -> RedirectResponse:
         row = db.one("SELECT * FROM jobs WHERE id = ?", (int(raw_job),))
         job = job_dict(row) if row else None
     lang = "en" if str(form.get("lang") or "pt") == "en" else "pt"
+    template = resume_mod.template_or_default(str(form.get("template") or ""))
     data = resume_mod.build(profile, job)
     name = str(form.get("name") or "").strip()
     if not name:
@@ -519,9 +520,10 @@ async def resume_create(request: Request) -> RedirectResponse:
     letter = resume_mod.cover_letter(profile, job, lang)
     application = db.one("SELECT id FROM applications WHERE job_id = ?", (int(raw_job),)) if raw_job else None
     resume_id = db.execute(
-        "INSERT INTO resumes (name, job_id, application_id, lang, data, letter) VALUES (?, ?, ?, ?, ?, ?)",
+        """INSERT INTO resumes (name, job_id, application_id, lang, template, data, letter)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
         (name[:120], int(raw_job) if raw_job else None,
-         application["id"] if application else None, lang, db.dumps(data), letter),
+         application["id"] if application else None, lang, template, db.dumps(data), letter),
     )
     msg = "Currículo criado a partir do seu perfil."
     if lang == "en":
@@ -598,6 +600,7 @@ def resume_detail(request: Request, resume_id: int) -> HTMLResponse:
             job=job,
             profile=profile,
             langs=resume_mod.LANGS,
+            resume_templates=resume_mod.TEMPLATES,
             text=text,
             warning=warning,
             found=found,
@@ -617,6 +620,7 @@ def resume_detail(request: Request, resume_id: int) -> HTMLResponse:
         job=job,
         profile=profile,
         langs=resume_mod.LANGS,
+        resume_templates=resume_mod.TEMPLATES,
         checklist=resume_mod.checklist(item["data"]),
     )
 
@@ -668,9 +672,11 @@ async def resume_save(request: Request, resume_id: int) -> RedirectResponse:
         for entry in items("idi", ("name", "level"))
     ]
 
+    template = resume_mod.template_or_default(str(form.get("template") or row["template"]))
     db.execute(
-        "UPDATE resumes SET name=?, lang=?, data=?, letter=?, updated_at=datetime('now') WHERE id=?",
-        (str(form.get("name") or row["name"])[:120], lang, db.dumps(data),
+        """UPDATE resumes SET name=?, lang=?, template=?, data=?, letter=?,
+                              updated_at=datetime('now') WHERE id=?""",
+        (str(form.get("name") or row["name"])[:120], lang, template, db.dumps(data),
          str(form.get("letter") or ""), resume_id),
     )
     return go(f"/curriculos/{resume_id}", "Currículo salvo.")
@@ -712,6 +718,8 @@ def resume_print(request: Request, resume_id: int) -> HTMLResponse:
             "resume": item,
             "data": item["data"],
             "lang": item["lang"],
+            "template": resume_mod.template_or_default(item.get("template")),
+            "templates": resume_mod.TEMPLATES,
             "sections": resume_mod.sections(item["lang"]),
         },
     )

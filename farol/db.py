@@ -75,6 +75,7 @@ def connect() -> sqlite3.Connection:
 MIGRATIONS: dict[str, dict[str, str]] = {
     "resumes": {
         "lang": "TEXT NOT NULL DEFAULT 'pt'",
+        "template": "TEXT NOT NULL DEFAULT 'sober'",
         "kind": "TEXT NOT NULL DEFAULT 'montado'",
         "file": "TEXT NOT NULL DEFAULT ''",
     },

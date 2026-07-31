@@ -15,6 +15,42 @@ PLACEHOLDER = "[preencher]"
 
 LANGS = {"pt": "Português", "en": "English"}
 
+# Modelos de apresentação do currículo. Mudam só o CSS da impressão — o conteúdo
+# é o mesmo, então trocar de modelo nunca perde texto seu.
+#
+# `sober` é o recomendado de propósito: uma coluna, sem cor de fundo, sem ícone e
+# sem coluna lateral é o que um filtro de ATS lê sem erro, e ATS é o primeiro
+# leitor de quase toda candidatura. Os outros existem para quando você sabe que
+# uma pessoa vai ler primeiro (indicação, feira, portfólio).
+TEMPLATES: dict[str, dict[str, Any]] = {
+    "sober": {
+        "label": "Sóbrio",
+        "hint": "Uma coluna, sem enfeite. É o que passa limpo por filtro de ATS.",
+        "recommended": True,
+    },
+    "compacto": {
+        "label": "Compacto",
+        "hint": "Mesma estrutura em espaçamento menor — ajuda a caber em uma página.",
+        "recommended": False,
+    },
+    "destaque": {
+        "label": "Com destaque",
+        "hint": "Nome e títulos de seção em cor de acento. Bom quando uma pessoa lê antes do robô.",
+        "recommended": False,
+    },
+    "moderno": {
+        "label": "Moderno",
+        "hint": "Sem serifa, nome grande e barra no título da seção. Mais cara de produto.",
+        "recommended": False,
+    },
+}
+
+DEFAULT_TEMPLATE = "sober"
+
+
+def template_or_default(value: str | None) -> str:
+    return value if value in TEMPLATES else DEFAULT_TEMPLATE
+
 # Títulos das seções do currículo impresso.
 SECTIONS = {
     "pt": {

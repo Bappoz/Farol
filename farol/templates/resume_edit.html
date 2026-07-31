@@ -41,6 +41,20 @@
             </select>
           </div>
         </div>
+        <div class="field">
+          <label for="template">Modelo de apresentação</label>
+          <select id="template" name="template">
+            {% for code, meta in resume_templates.items() %}
+            <option value="{{ code }}" {{ 'selected' if resume.template == code }}>
+              {{ meta.label }}{{ ' (recomendado)' if meta.recommended }}
+            </option>
+            {% endfor %}
+          </select>
+          <div class="help">
+            {% for code, meta in resume_templates.items() if code == resume.template %}{{ meta.hint }}{% endfor %}
+            Muda só a aparência do PDF — o conteúdo é o mesmo, dá para trocar quando quiser sem perder texto.
+          </div>
+        </div>
         <div class="field" style="margin:0">
           <label for="summary">Resumo</label>
           <textarea id="summary" name="summary" rows="4">{{ data.summary }}</textarea>

@@ -11,12 +11,12 @@ Sem conta, sem nuvem, sem assinatura. Os dados ficam em um SQLite dentro de `~/.
 | Tela | Para quê |
 |------|----------|
 | **Painel** | Funil das candidaturas, meta semanal, próximas ações atrasadas e as melhores vagas do momento. |
-| **Vagas** | Coleta de 5 portais + qualquer feed RSS que você adicionar, com fit score de 0 a 100 explicado item a item. |
+| **Vagas** | Coleta de 5 portais + qualquer feed RSS que você adicionar, com fit score de 0 a 100 explicado item a item e filtros combináveis (região, localização, modelo de trabalho, salário). |
 | **Pipeline** | Kanban de candidaturas (salva → candidatado → triagem → entrevista → teste → oferta), com histórico e próximo passo. |
-| **Currículos** | Currículo base + versões direcionadas a uma vaga, em **português ou inglês**, com checagem antes de enviar, carta e PDF pela impressão. Também guarda **PDFs que você já tem**. |
+| **Currículos** | Currículo base + versões direcionadas a uma vaga, em **português ou inglês**, em **quatro modelos** de apresentação, com checagem antes de enviar, carta e PDF pela impressão. Também guarda **PDFs que você já tem**. |
 | **Roadmap** | Lacunas de skill calculadas sobre as vagas que **as suas buscas** trouxeram, com projetos e certificações recomendados. |
 | **Perfil** | Fonte única da verdade: alimenta pontuação, currículo e roadmap. |
-| **Ajustes** | Termos de busca, fontes (com diagnóstico de erro), preferências de região e a chave opcional da API. |
+| **Ajustes** | Termos de busca, fontes (com diagnóstico de erro), preferências de região, aviso no desktop e a chave opcional da API. |
 
 ### O fit score não é caixa-preta
 
@@ -29,6 +29,32 @@ região       0–10   aceita quem está no Brasil / América Latina
 recência     0–10   vaga de hoje vale mais que vaga de três semanas
 preferências 0–5    suas palavras-chave; termo excluído no título afunda a vaga
 ```
+
+### Filtros da lista de vagas
+
+Todos combinam entre si e com a busca por texto:
+
+| Filtro | O que faz |
+|--------|-----------|
+| **Região** | Agrupa a localização em Brasil / América Latina / Mundial / Outra. Resolve a fragmentação dos rótulos: `Brazil` e `Brazil, Latin America` caem no mesmo grupo. |
+| **Localização exata** | Lista só os valores que existem na sua base, com a contagem. É um select justamente para não haver erro de digitação. Vale para vaga remota: é ali que os portais dizem de onde aceitam candidato. |
+| **Modelo** | Remoto, híbrido, presencial ou todos. |
+| **Salário mínimo** | Compara com o topo da faixa anunciada, e **só entre vagas da mesma moeda** — o app não converte câmbio, então nunca compara euro com dólar. Valor mensal é normalizado para anual (×12). |
+
+Duas coisas que o filtro de salário **não** faz, de propósito: não chuta a moeda quando o anúncio
+não diz qual é (a vaga fica de fora do filtro em vez de ser tratada como dólar), e não inventa faixa
+para quem não publicou nenhuma. A maioria dos anúncios não publica salário — limpar o campo mostra
+essas vagas de novo.
+
+Quando o resultado é vazio, a tela diz *por quê* em vez de mandar afrouxar o fit. As cinco fontes
+embutidas são portais de trabalho remoto, então filtrar por presencial tende a dar lista vazia: para
+vaga de escritório, adicione em Ajustes o feed RSS de um portal que anuncie presencial.
+
+### Aviso no desktop (opcional)
+
+Ligue em Ajustes para receber uma notificação quando a coleta trouxer vaga nova acima do fit que
+você escolher. Usa o `notify-send` da sua sessão; sem ele instalado o aviso é ignorado em silêncio,
+porque coleta não pode falhar por causa de um aviso. Vem desligado.
 
 ### Currículo em inglês
 
@@ -46,6 +72,25 @@ perfil* refaz o documento do zero quando o Perfil mudou (e aí sim descarta as t
 A pontuação das vagas não se importa com idioma: `unit tests` e `testes automatizados` caem na mesma
 skill canônica, e o mesmo vale para senioridade (`junior`, `entry level`, `trainee`, `estágio`).
 
+### Modelos de currículo
+
+Quatro modelos, escolhidos na criação e trocáveis a qualquer momento no editor:
+
+| Modelo | Quando usar |
+|--------|-------------|
+| **Sóbrio** *(recomendado, padrão)* | Uma coluna, sem enfeite. É o que passa limpo por filtro de ATS. |
+| **Compacto** | Mesma estrutura em espaçamento menor — ajuda a caber em uma página. |
+| **Com destaque** | Nome e títulos de seção em cor de acento. |
+| **Moderno** | Sem serifa, nome grande, barra no título da seção. |
+
+**Sóbrio é o recomendado por um motivo concreto**: quando o anúncio manda subir o currículo num
+formulário, é quase certo que um filtro automático (ATS) lê antes de qualquer pessoa, e coluna
+lateral, cor de fundo e ícone são o que mais o confunde. Os outros valem quando você sabe que alguém
+vai abrir o PDF direto — indicação, feira, portfólio.
+
+Os modelos mudam **só o CSS da impressão** sobre o mesmo HTML: trocar de modelo não altera nem perde
+nada do que você escreveu.
+
 ### PDF que você já tem
 
 Dá para subir um currículo pronto em PDF (até 15 MB) na tela de Currículos ou direto na página da
@@ -57,6 +102,17 @@ O texto é lido de volta (via `pypdf`, com `pdftotext` como alternativa) para tr
 que falta*) e sugerir ao Perfil as skills que aparecem lá e ainda não estão cadastradas — você marca
 quais aceita. Se o PDF for imagem escaneada, o app diz que não há camada de texto em vez de fingir
 que leu; e avisa, porque é assim que filtro automático costuma reprovar currículo.
+
+### A descrição da vaga é remontada, não despejada
+
+Cada portal manda a descrição num HTML diferente. Na ingestão o app reduz isso a texto marcando a
+estrutura (`## ` para título de seção, `- ` e `1. ` para lista) e, na hora de mostrar, `farol.markup`
+remonta em títulos, listas e parágrafos, com URL virando link. Assim o anúncio é legível em vez de um
+bloco corrido com tudo no mesmo nível.
+
+O texto do anúncio é **escapado antes** de qualquer marcação: ele vem de portal de terceiro e nunca
+pode injetar HTML na página. Descrição já gravada antes desses marcadores continua legível — cai no
+caminho de parágrafo.
 
 ### O app não inventa experiência
 
@@ -146,7 +202,7 @@ pontuação, o roadmap e o currículo são calculados localmente, sem rede.
 ## Desenvolvimento
 
 ```bash
-.venv/bin/python -m pytest tests -q      # 51 testes, sem rede (fontes usam respostas gravadas)
+.venv/bin/python -m pytest tests -q      # 100 testes, sem rede (fontes usam respostas gravadas)
 .venv/bin/python -m farol servir --reload
 ```
 
@@ -157,8 +213,9 @@ farol/
   app.py         rotas e renderização (FastAPI + Jinja, tudo server-side)
   db.py          SQLite sem ORM + schema.sql + migrações de coluna
   collect.py     ingestão: busca, deduplica, grava, pontua
-  scoring.py     fit score explicável
+  scoring.py     fit score explicável, modelo de trabalho, região e faixa salarial
   skills.py      taxonomia de skills e extração de texto
+  markup.py      descrição da vaga → HTML legível (escapa antes de marcar)
   resume.py      montagem de currículo, carta e checagem
   pdfs.py        PDFs enviados por você: guardar, servir e extrair texto
   roadmap.py     lacunas, projetos e certificações

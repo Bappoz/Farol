@@ -1,0 +1,20 @@
+{
+  "total": 1,
+  "jobs": [
+    {
+      "title": "Junior Backend Developer",
+      "companyName": "Orbital",
+      "companyLogo": "https://example.com/l.png",
+      "excerpt": "Node.js and PostgreSQL",
+      "description": "We are hiring a junior backend developer. Stack: Node.js, PostgreSQL, Docker.",
+      "pubDate": 1785000000,
+      "guid": "https://himalayas.app/companies/orbital/jobs/junior-backend-developer",
+      "applicationLink": "https://himalayas.app/companies/orbital/jobs/junior-backend-developer",
+      "locationRestrictions": ["Brazil", "Latin America"],
+      "categories": ["Software Development"],
+      "seniority": ["Junior"],
+      "minSalary": 24000,
+      "maxSalary": 36000
+    }
+  ]
+}

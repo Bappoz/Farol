@@ -1,0 +1,32 @@
+{
+  "0-legal-notice": "Remotive API",
+  "job-count": 2,
+  "jobs": [
+    {
+      "id": 1900001,
+      "url": "https://remotive.com/remote-jobs/software-dev/junior-python-developer-1900001",
+      "title": "Junior Python Developer",
+      "company_name": "Northwind Labs",
+      "company_logo": "https://example.com/logo.png",
+      "category": "Software Development",
+      "tags": ["python", "fastapi", "postgresql"],
+      "job_type": "full_time",
+      "publication_date": "2026-07-29T10:00:00",
+      "candidate_required_location": "Worldwide",
+      "salary": "USD 40.000 - 60.000",
+      "description": "<p>We are looking for a <b>junior developer</b> to work with Python, FastAPI and PostgreSQL.</p><ul><li>Write tests with pytest</li><li>Deploy with Docker</li></ul>"
+    },
+    {
+      "id": 1900002,
+      "url": "https://remotive.com/remote-jobs/software-dev/senior-staff-engineer-1900002",
+      "title": "Senior Staff Engineer",
+      "company_name": "Acme Cloud",
+      "category": "Software Development",
+      "tags": ["kubernetes", "go"],
+      "publication_date": "2026-06-01T10:00:00",
+      "candidate_required_location": "USA Only",
+      "salary": "",
+      "description": "We need 10+ years of experience. US based candidates only."
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+[
+  { "legal": "Remote OK API - please attribute" },
+  {
+    "slug": "acme-junior-frontend",
+    "id": "77001",
+    "epoch": 1785000000,
+    "date": "2026-07-28T12:00:00+00:00",
+    "company": "Acme",
+    "position": "Junior Frontend Engineer",
+    "tags": ["react", "typescript", "css"],
+    "description": "<p>Entry level role. React, TypeScript and CSS. Remote, LatAm friendly.</p>",
+    "location": "Worldwide",
+    "salary_min": 30000,
+    "salary_max": 50000,
+    "url": "https://remoteok.com/remote-jobs/77001",
+    "apply_url": "https://remoteok.com/remote-jobs/77001"
+  }
+]

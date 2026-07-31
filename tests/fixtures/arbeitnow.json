@@ -1,0 +1,18 @@
+{
+  "data": [
+    {
+      "slug": "junior-data-analyst-berlin-123",
+      "company_name": "Datenhaus",
+      "title": "Junior Data Analyst",
+      "description": "<p>SQL, Power BI e Python. Trabalho remoto.</p>",
+      "remote": true,
+      "url": "https://www.arbeitnow.com/jobs/companies/datenhaus/junior-data-analyst-123",
+      "tags": ["sql", "power bi"],
+      "job_types": ["full_time"],
+      "location": "Berlin",
+      "created_at": 1785000000
+    }
+  ],
+  "links": { "next": null },
+  "meta": { "current_page": 1 }
+}

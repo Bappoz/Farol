@@ -33,7 +33,12 @@
     </div>
     <div class="field">
       <label for="local">Localização</label>
-      <input type="text" id="local" name="local" value="{{ filters.local }}" placeholder="brasil, worldwide, latam...">
+      <select id="local" name="local" data-autosubmit>
+        <option value="">todas</option>
+        {% for loc in locations %}
+        <option value="{{ loc.location }}" {{ 'selected' if filters.local == loc.location }}>{{ loc.location }} ({{ loc.n }})</option>
+        {% endfor %}
+      </select>
     </div>
     <div class="field">
       <label for="modo">Modelo</label>

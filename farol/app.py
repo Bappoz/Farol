@@ -192,8 +192,9 @@ def jobs_list(request: Request) -> HTMLResponse:
         args += [needle, needle, needle]
     if local:
         # vale mesmo para vaga remota: location guarda a região aceita ("Brazil", "Worldwide"...)
-        where.append("LOWER(location) LIKE ?")
-        args.append(f"%{local.lower()}%")
+        # comparação exata com um valor que já existe na base — o select não deixa digitar errado
+        where.append("location = ?")
+        args.append(local)
     if modo in scoring.WORK_MODES:
         where.append("work_mode = ?")
         args.append(modo)
@@ -217,6 +218,13 @@ def jobs_list(request: Request) -> HTMLResponse:
         job["application_id"] = saved.get(job["id"])
 
     sources = [dict(r) for r in db.query("SELECT * FROM sources ORDER BY label")]
+    locations = [
+        dict(r)
+        for r in db.query(
+            """SELECT location, COUNT(*) AS n FROM jobs WHERE location <> ''
+               GROUP BY location ORDER BY n DESC, location COLLATE NOCASE LIMIT 200"""
+        )
+    ]
     total = db.one("SELECT COUNT(*) AS n FROM jobs")["n"]
     filters = {
         "q": term, "fonte": source, "estado": state, "ordem": order, "min": min_score,
@@ -229,6 +237,7 @@ def jobs_list(request: Request) -> HTMLResponse:
         nav="vagas",
         jobs=jobs,
         sources=sources,
+        locations=locations,
         total=total,
         filters=filters,
         back_qs=back_qs,

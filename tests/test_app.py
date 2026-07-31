@@ -93,10 +93,16 @@ def test_coleta_grava_modo_e_faixa_salarial(com_vagas):
 
 
 def test_filtro_de_localizacao_vale_para_vaga_remota(client, com_vagas):
-    resposta = client.get("/vagas?estado=todas&min=0&local=worldwide")
+    resposta = client.get("/vagas?estado=todas&min=0&local=Worldwide")
     assert resposta.status_code == 200
     assert "Junior Python Developer" in resposta.text  # candidate_required_location = Worldwide
     assert "Junior Data Analyst" not in resposta.text  # location = Berlin
+
+
+def test_select_de_localizacao_lista_valores_reais_da_base(client, com_vagas):
+    resposta = client.get("/vagas?estado=todas&min=0")
+    assert 'value="Worldwide"' in resposta.text
+    assert 'value="Berlin"' in resposta.text
 
 
 def test_filtro_de_modelo_de_trabalho(client, com_vagas):
@@ -114,7 +120,7 @@ def test_filtro_de_salario_combina_com_localizacao(client, com_vagas):
     assert "Junior Backend Developer" not in alto.text  # faixa 24k–36k (Himalayas)
     assert "Junior Frontend Engineer" not in alto.text  # faixa 30k–50k (RemoteOK)
 
-    combinado = client.get("/vagas?estado=todas&min=0&salario=55000&local=worldwide")
+    combinado = client.get("/vagas?estado=todas&min=0&salario=55000&local=Worldwide")
     assert "Junior Python Developer" in combinado.text
 
 

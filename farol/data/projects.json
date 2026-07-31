@@ -1,0 +1,257 @@
+[
+  {
+    "id": "front-dashboard",
+    "areas": ["frontend", "fullstack"],
+    "level": "iniciante",
+    "title": "Painel que consome uma API pública de verdade",
+    "pitch": "Uma tela de listagem com busca, filtros, paginação e estados de carregando/vazio/erro. É o exercício que mais aparece em teste técnico de front-end júnior.",
+    "skills": ["react", "typescript", "css", "rest", "testes automatizados"],
+    "steps": [
+      "Escolha uma API pública com paginação (GitHub, TMDB, Brasil API)",
+      "Implemente busca com debounce, filtros combináveis e URL sincronizada com o estado",
+      "Trate os três estados que todo júnior esquece: carregando, vazio e erro",
+      "Cubra a listagem com testes de componente (Vitest + Testing Library)",
+      "Publique na Vercel e escreva um README com print e decisões técnicas"
+    ],
+    "signal": "Prova que você entrega interface que não quebra quando a rede falha.",
+    "effort": "1 a 2 semanas"
+  },
+  {
+    "id": "front-design-system",
+    "areas": ["frontend", "design"],
+    "level": "intermediario",
+    "title": "Mini design system documentado",
+    "pitch": "De 8 a 10 componentes acessíveis com tokens de cor, tipografia e espaçamento, documentados no Storybook e publicados como pacote.",
+    "skills": ["react", "typescript", "css", "acessibilidade", "design system", "documentação"],
+    "steps": [
+      "Defina tokens (cores, espaçamento, tipografia) antes de escrever componente",
+      "Implemente botão, input, select, modal, tabela e toast com teclado e ARIA corretos",
+      "Documente cada componente no Storybook com casos de uso e limitações",
+      "Rode auditoria de acessibilidade (axe) e registre o resultado no README",
+      "Publique no npm ou como pacote do repositório e consuma em um app de exemplo"
+    ],
+    "signal": "Mostra maturidade de front-end: consistência, acessibilidade e documentação.",
+    "effort": "3 a 4 semanas"
+  },
+  {
+    "id": "back-api-completa",
+    "areas": ["backend", "fullstack"],
+    "level": "iniciante",
+    "title": "API REST com autenticação e testes",
+    "pitch": "CRUD com autenticação por token, validação de entrada, paginação, tratamento de erro padronizado e suíte de testes rodando no CI.",
+    "skills": ["python", "rest", "postgresql", "testes automatizados", "docker", "ci/cd"],
+    "steps": [
+      "Modele o domínio (3 a 4 tabelas com relacionamento real) e escreva as migrations",
+      "Implemente autenticação, autorização por dono do recurso e rate limit simples",
+      "Padronize erros (código, mensagem, campo) e documente com OpenAPI",
+      "Escreva testes de integração com banco em container",
+      "Suba com Docker Compose e configure GitHub Actions rodando os testes a cada push"
+    ],
+    "signal": "É o projeto que mais convence em vaga de back-end júnior: cobre o ciclo inteiro.",
+    "effort": "2 a 3 semanas"
+  },
+  {
+    "id": "back-integracao",
+    "areas": ["backend", "fullstack"],
+    "level": "intermediario",
+    "title": "Integração com serviço externo à prova de falha",
+    "pitch": "Um serviço que consome uma API de terceiro (pagamento, e-mail, CEP) com retry, backoff, idempotência e fila.",
+    "skills": ["python", "mensageria", "redis", "observabilidade", "clean code"],
+    "steps": [
+      "Escolha uma integração com sandbox gratuito (Stripe test mode, Mercado Pago sandbox)",
+      "Implemente webhook com verificação de assinatura e processamento idempotente",
+      "Coloque uma fila entre a chamada e o processamento, com retry e dead-letter",
+      "Adicione logs estruturados e uma métrica de sucesso/falha por integração",
+      "Escreva um teste que simula o terceiro fora do ar"
+    ],
+    "signal": "Poucos juniores sabem falar de idempotência e retry. Isso te separa da pilha.",
+    "effort": "2 a 3 semanas"
+  },
+  {
+    "id": "dados-pipeline",
+    "areas": ["dados", "ia"],
+    "level": "iniciante",
+    "title": "Pipeline de dados de ponta a ponta",
+    "pitch": "Coleta automatizada de uma fonte pública, tratamento, carga em banco analítico e um painel que responde três perguntas de negócio.",
+    "skills": ["python", "sql", "etl", "pandas", "modelagem de dados", "power bi"],
+    "steps": [
+      "Escolha uma fonte com atualização periódica (dados.gov.br, IBGE, Brasil.io)",
+      "Escreva a extração idempotente e versione os dados brutos separados dos tratados",
+      "Modele em camadas (bruto → tratado → agregado) e documente o dicionário de dados",
+      "Agende com cron ou Airflow e registre falhas de execução",
+      "Publique um painel com três perguntas de negócio respondidas, não só gráficos bonitos"
+    ],
+    "signal": "Mostra que você entende dado como produto, não como notebook solto.",
+    "effort": "2 a 3 semanas"
+  },
+  {
+    "id": "dados-analise",
+    "areas": ["dados"],
+    "level": "iniciante",
+    "title": "Análise com recomendação escrita",
+    "pitch": "Uma análise exploratória que termina em decisão: o que a empresa deveria fazer, com o número que sustenta a recomendação.",
+    "skills": ["sql", "pandas", "estatística", "documentação"],
+    "steps": [
+      "Escolha um dataset com contexto de negócio (varejo, churn, logística)",
+      "Formule 3 hipóteses ANTES de abrir os dados e registre-as",
+      "Valide com estatística básica (intervalo de confiança, teste de hipótese)",
+      "Escreva um relatório de 2 páginas para quem não é técnico",
+      "Grave um vídeo de 3 minutos apresentando — recrutador assiste"
+    ],
+    "signal": "Analista júnior que escreve bem e conclui vale mais que quem só plota gráfico.",
+    "effort": "1 semana"
+  },
+  {
+    "id": "ia-rag",
+    "areas": ["ia", "backend"],
+    "level": "intermediario",
+    "title": "Busca semântica sobre seus próprios documentos",
+    "pitch": "Um RAG honesto: ingestão, chunking, embeddings, busca híbrida e resposta com citação da fonte — além de uma avaliação que mede se melhorou.",
+    "skills": ["python", "llm", "rag", "nlp", "fastapi", "postgresql"],
+    "steps": [
+      "Monte a ingestão com chunking configurável e metadados de origem",
+      "Compare busca vetorial pura contra busca híbrida (BM25 + vetor)",
+      "Force a resposta a citar o trecho de origem e a dizer quando não sabe",
+      "Crie um conjunto de 30 perguntas com resposta esperada e meça acerto",
+      "Documente o custo por consulta e a latência"
+    ],
+    "signal": "Todo mundo tem um chatbot no portfólio; quase ninguém tem avaliação e custo medido.",
+    "effort": "3 semanas"
+  },
+  {
+    "id": "ia-modelo",
+    "areas": ["ia", "dados"],
+    "level": "intermediario",
+    "title": "Modelo de ML em produção (mesmo que pequeno)",
+    "pitch": "Um modelo de classificação servido por API, com versionamento de dados, métricas de validação e monitoramento de deriva.",
+    "skills": ["python", "machine learning", "scikit-learn", "fastapi", "docker", "mlops"],
+    "steps": [
+      "Defina a métrica de negócio antes da métrica do modelo",
+      "Separe treino/validação/teste com cuidado temporal e registre o baseline burro",
+      "Sirva por API com contrato de entrada validado",
+      "Empacote com Docker e registre versão de modelo + versão de dados",
+      "Monitore distribuição das features de entrada e alerte quando mudar"
+    ],
+    "signal": "Prova que você sabe a diferença entre notebook e sistema.",
+    "effort": "3 a 4 semanas"
+  },
+  {
+    "id": "devops-infra",
+    "areas": ["devops", "backend"],
+    "level": "intermediario",
+    "title": "Infraestrutura versionada e pipeline de deploy",
+    "pitch": "Uma aplicação simples entregue por pipeline automatizado, com infra descrita em código e rollback testado.",
+    "skills": ["terraform", "docker", "ci/cd", "github actions", "linux", "observabilidade"],
+    "steps": [
+      "Descreva a infra em Terraform (use free tier de AWS/GCP ou LocalStack)",
+      "Pipeline com etapas de lint, teste, build de imagem e deploy",
+      "Configure health check e um rollback que você realmente executou uma vez",
+      "Suba métricas e logs centralizados (Prometheus + Grafana ou stack gerenciada)",
+      "Escreva um runbook: o que fazer quando cair às 3h da manhã"
+    ],
+    "signal": "Runbook e rollback testado são o que diferencia estudo de operação real.",
+    "effort": "3 semanas"
+  },
+  {
+    "id": "devops-observabilidade",
+    "areas": ["devops", "qa"],
+    "level": "iniciante",
+    "title": "Instrumentação de uma aplicação existente",
+    "pitch": "Pegue um projeto seu e adicione logs estruturados, métricas, tracing e alertas que disparam de verdade.",
+    "skills": ["observabilidade", "docker", "linux", "documentação"],
+    "steps": [
+      "Padronize logs em JSON com correlação por request id",
+      "Exponha métricas de latência, erro e throughput",
+      "Adicione tracing distribuído em pelo menos duas camadas",
+      "Crie um alerta e provoque o incidente para ver se ele dispara",
+      "Documente os quatro sinais dourados do seu serviço"
+    ],
+    "signal": "Mostra pensamento de produção, algo raro em portfólio júnior.",
+    "effort": "1 a 2 semanas"
+  },
+  {
+    "id": "mobile-app",
+    "areas": ["mobile", "fullstack"],
+    "level": "iniciante",
+    "title": "App publicado com dados offline",
+    "pitch": "Um aplicativo pequeno mas completo: navegação, persistência local, sincronização e publicação em loja ou APK assinado.",
+    "skills": ["flutter", "dart", "rest", "sqlite", "testes automatizados"],
+    "steps": [
+      "Escolha um problema seu (gastos, treino, leitura) — app real é melhor que clone",
+      "Implemente persistência local e funcionamento offline com sincronização depois",
+      "Cuide de estados de erro, permissão negada e sem conexão",
+      "Adicione testes de widget nos fluxos principais",
+      "Publique (Play Store interna ou APK assinado + vídeo de demonstração)"
+    ],
+    "signal": "App publicado com política de privacidade e ícone decente já te coloca à frente.",
+    "effort": "3 semanas"
+  },
+  {
+    "id": "qa-automacao",
+    "areas": ["qa", "frontend"],
+    "level": "iniciante",
+    "title": "Suíte de testes automatizados em um projeto real",
+    "pitch": "Escolha um sistema open source, escreva plano de teste, automatize os fluxos críticos e rode tudo no CI.",
+    "skills": ["cypress", "testes automatizados", "ci/cd", "qa", "documentação"],
+    "steps": [
+      "Escreva o plano de teste antes: risco, cobertura pretendida, critério de saída",
+      "Automatize 8 a 12 cenários end-to-end com dados isolados por execução",
+      "Adicione testes de API para o que não precisa de navegador",
+      "Configure execução no CI com relatório e evidência em falha",
+      "Abra pelo menos um bug bem escrito no repositório original"
+    ],
+    "signal": "Bug bem reportado em projeto open source é referência verificável.",
+    "effort": "2 semanas"
+  },
+  {
+    "id": "seg-lab",
+    "areas": ["seguranca", "backend"],
+    "level": "intermediario",
+    "title": "Laboratório de vulnerabilidades com relatório",
+    "pitch": "Explore um ambiente propositalmente vulnerável (autorizado) e escreva o relatório no formato que o mercado usa.",
+    "skills": ["segurança", "linux", "rest", "documentação"],
+    "steps": [
+      "Use ambientes feitos para isso: OWASP Juice Shop, DVWA, TryHackMe, HTB",
+      "Documente cada achado com impacto, evidência e correção sugerida",
+      "Escreva o relatório executivo (1 página) e o técnico (detalhado)",
+      "Corrija as falhas em um fork e mostre o antes/depois",
+      "Automatize uma verificação no CI (SAST ou dependência vulnerável)"
+    ],
+    "signal": "Relatório bem escrito é o produto do profissional de segurança.",
+    "effort": "2 a 3 semanas"
+  },
+  {
+    "id": "design-case",
+    "areas": ["design", "frontend"],
+    "level": "iniciante",
+    "title": "Estudo de caso com problema, processo e resultado",
+    "pitch": "Um case completo: problema real, pesquisa, protótipo, teste com 5 pessoas e o que mudou depois do teste.",
+    "skills": ["ux", "figma", "acessibilidade", "design system", "documentação"],
+    "steps": [
+      "Escolha um fluxo ruim de um serviço que você usa e defina a métrica de sucesso",
+      "Faça pesquisa mínima: 5 entrevistas curtas ou análise de reviews",
+      "Prototipe no Figma e teste com 5 pessoas gravando as travadas",
+      "Itere e mostre a versão 1 ao lado da versão 2 explicando o porquê",
+      "Publique o case com o processo visível, não só as telas bonitas"
+    ],
+    "signal": "Portfólio de design sem processo é galeria. Com processo, é argumento.",
+    "effort": "2 semanas"
+  },
+  {
+    "id": "geral-contribuicao",
+    "areas": ["frontend", "backend", "fullstack", "dados", "ia", "devops", "mobile", "qa", "seguranca", "design"],
+    "level": "iniciante",
+    "title": "Contribuição aceita em projeto open source",
+    "pitch": "Um pull request de verdade, revisado e mergeado por outra pessoa. É a prova mais barata de que você trabalha em código dos outros.",
+    "skills": ["git", "code review", "documentação", "inglês"],
+    "steps": [
+      "Escolha um projeto que você usa e leia o CONTRIBUTING antes de tudo",
+      "Comece por issues com rótulo good first issue ou por documentação",
+      "Faça um PR pequeno, com descrição clara e teste",
+      "Responda a revisão sem defensividade e ajuste",
+      "Guarde o link do PR mergeado — ele vai para o currículo"
+    ],
+    "signal": "Prova de colaboração real, com histórico público e revisor externo.",
+    "effort": "1 semana"
+  }
+]

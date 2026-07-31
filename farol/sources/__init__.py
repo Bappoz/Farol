@@ -1,0 +1,141 @@
+"""Coletores de vagas.
+
+Cada coletor é um módulo com uma função `fetch(client, query) -> list[dict]`.
+O dicionário devolvido segue sempre o mesmo formato:
+
+    source_id, title, company, url, apply_url, location, remote,
+    salary, tags (list[str]), description (texto puro), published_at (ISO-8601)
+
+Para adicionar um portal novo: crie `farol/sources/meuportal.py` com um `fetch`,
+registre em `REGISTRY` abaixo e adicione a linha em `db.BUILTIN_SOURCES`.
+"""
+
+from __future__ import annotations
+
+import html
+import re
+from datetime import datetime, timezone
+from typing import Any, Callable
+
+import httpx
+
+from . import arbeitnow, himalayas, remoteok, remotive, rss, weworkremotely
+
+USER_AGENT = (
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/125.0 Safari/537.36 Farol/0.1 (uso pessoal)"
+)
+
+REGISTRY: dict[str, Callable[[httpx.Client, str], list[dict[str, Any]]]] = {
+    "remotive": remotive.fetch,
+    "remoteok": remoteok.fetch,
+    "arbeitnow": arbeitnow.fetch,
+    "himalayas": himalayas.fetch,
+    "weworkremotely": weworkremotely.fetch,
+}
+
+
+def client(timeout: float = 25.0) -> httpx.Client:
+    return httpx.Client(
+        timeout=timeout,
+        follow_redirects=True,
+        headers={"User-Agent": USER_AGENT, "Accept": "application/json, text/xml, */*"},
+    )
+
+
+# ------------------------------------------------------------------ helpers
+
+
+_BLOCK_TAGS = re.compile(r"</(p|div|li|ul|ol|h[1-6]|tr|br)>|<br\s*/?>", re.I)
+_TAGS = re.compile(r"<[^>]+>")
+
+
+def to_text(raw: str | None) -> str:
+    """HTML → texto legível, preservando quebras de parágrafo."""
+    if not raw:
+        return ""
+    text = _BLOCK_TAGS.sub("\n", str(raw))
+    text = _TAGS.sub(" ", text)
+    text = html.unescape(text)
+    text = re.sub(r"[ \t\xa0]+", " ", text)
+    text = re.sub(r"\n\s*\n\s*\n+", "\n\n", text)
+    return "\n".join(line.strip() for line in text.splitlines()).strip()
+
+
+def iso(value: Any) -> str | None:
+    """Normaliza epoch, string ISO ou data RFC-822 para ISO-8601 UTC."""
+    if value in (None, "", 0):
+        return None
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.fromtimestamp(float(value), tz=timezone.utc).isoformat()
+        except (OverflowError, OSError, ValueError):
+            return None
+    text = str(value).strip()
+    if text.isdigit():
+        return iso(int(text))
+    candidates = [
+        lambda t: datetime.fromisoformat(t.replace("Z", "+00:00")),
+        lambda t: datetime.strptime(t, "%a, %d %b %Y %H:%M:%S %z"),
+        lambda t: datetime.strptime(t, "%a, %d %b %Y %H:%M:%S %Z"),
+        lambda t: datetime.strptime(t, "%Y-%m-%d"),
+    ]
+    for parse in candidates:
+        try:
+            parsed = parse(text)
+        except (ValueError, TypeError):
+            continue
+        if not parsed.tzinfo:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc).isoformat()
+    return None
+
+
+def as_tags(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(v).strip() for v in value if str(v).strip()][:20]
+    if isinstance(value, str) and value.strip():
+        return [part.strip() for part in value.split(",") if part.strip()][:20]
+    return []
+
+
+def normalize(source: str, item: dict[str, Any]) -> dict[str, Any] | None:
+    """Garante os campos obrigatórios e descarta itens quebrados."""
+    title = (item.get("title") or "").strip()
+    source_id = str(item.get("source_id") or "").strip()
+    if not title or not source_id:
+        return None
+    return {
+        "source": source,
+        "source_id": source_id,
+        "title": title[:200],
+        "company": (item.get("company") or "").strip()[:120],
+        "url": (item.get("url") or "").strip(),
+        "apply_url": (item.get("apply_url") or "").strip(),
+        "location": (item.get("location") or "").strip()[:120],
+        "remote": 1 if item.get("remote", True) else 0,
+        "salary": (item.get("salary") or "").strip()[:120],
+        "tags": as_tags(item.get("tags")),
+        "description": to_text(item.get("description"))[:20000],
+        "published_at": item.get("published_at"),
+    }
+
+
+def fetch_source(source: dict[str, Any], query: str, http: httpx.Client) -> list[dict[str, Any]]:
+    """Executa um coletor (embutido ou RSS custom) e devolve itens normalizados."""
+    sid = source["id"]
+    if source.get("kind") == "rss":
+        raw = rss.fetch(http, source.get("url") or "")
+        sid_prefix = sid
+    else:
+        collector = REGISTRY.get(sid)
+        if collector is None:
+            raise ValueError(f"fonte desconhecida: {sid}")
+        raw = collector(http, query)
+        sid_prefix = sid
+    items = []
+    for entry in raw:
+        normalized = normalize(sid_prefix, entry)
+        if normalized:
+            items.append(normalized)
+    return items

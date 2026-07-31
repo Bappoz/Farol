@@ -13,6 +13,7 @@ registre em `REGISTRY` abaixo e adicione a linha em `db.BUILTIN_SOURCES`.
 from __future__ import annotations
 
 import html
+import itertools
 import re
 from datetime import datetime, timezone
 from typing import Any, Callable
@@ -46,19 +47,38 @@ def client(timeout: float = 25.0) -> httpx.Client:
 # ------------------------------------------------------------------ helpers
 
 
+_HEADING_OPEN = re.compile(r"<h[1-6][^>]*>", re.I)
+_LIST_ITEM_OPEN = re.compile(r"<li[^>]*>", re.I)
+_ORDERED_BLOCK = re.compile(r"<ol[^>]*>(.*?)</ol>", re.I | re.S)
 _BLOCK_TAGS = re.compile(r"</(p|div|li|ul|ol|h[1-6]|tr|br)>|<br\s*/?>", re.I)
 _TAGS = re.compile(r"<[^>]+>")
 
 
+def _number_items(match: re.Match[str]) -> str:
+    """Itens de <ol> viram '1. ', '2. '… — a ordem é parte do conteúdo."""
+    counter = itertools.count(1)
+    return _LIST_ITEM_OPEN.sub(lambda _: f"\n{next(counter)}. ", match.group(1))
+
+
 def to_text(raw: str | None) -> str:
-    """HTML → texto legível, preservando quebras de parágrafo."""
+    """HTML → texto quase-markdown, preservando título de seção e lista.
+
+    A estrutura do anúncio é o que o torna legível: `farol.markup` reconstrói o
+    HTML a partir destes marcadores (`## ` para título, `- ` para item). Guardamos
+    texto em vez de HTML porque o mesmo campo alimenta a extração de skills.
+    """
     if not raw:
         return ""
-    text = _BLOCK_TAGS.sub("\n", str(raw))
+    text = _HEADING_OPEN.sub("\n## ", str(raw))
+    text = _ORDERED_BLOCK.sub(_number_items, text)  # antes do <li> genérico
+    text = _LIST_ITEM_OPEN.sub("\n- ", text)
+    text = _BLOCK_TAGS.sub("\n", text)
     text = _TAGS.sub(" ", text)
     text = html.unescape(text)
     text = re.sub(r"[ \t\xa0]+", " ", text)
     text = re.sub(r"\n\s*\n\s*\n+", "\n\n", text)
+    # o marcador pode ter ficado com espaço sobrando antes do texto
+    text = re.sub(r"^(##|-|\d{1,2}\.) +", r"\1 ", text, flags=re.M)
     return "\n".join(line.strip() for line in text.splitlines()).strip()
 
 

@@ -37,7 +37,7 @@
       </div>
       <div class="card-body">
         {% if job.description %}
-          <div class="desc clamp">{{ job.description }}</div>
+          <div class="desc clamp">{{ job.description | descricao }}</div>
         {% else %}
           <p class="faint">Esta fonte não trouxe a descrição completa. Abra o anúncio original.</p>
         {% endif %}

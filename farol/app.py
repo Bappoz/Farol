@@ -14,8 +14,9 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup
 
-from . import ai, collect, db, pdfs, resume as resume_mod, roadmap, scoring, skills
+from . import ai, collect, db, markup, pdfs, resume as resume_mod, roadmap, scoring, skills
 
 PKG_DIR = Path(__file__).resolve().parent
 
@@ -32,6 +33,8 @@ app = FastAPI(title="Farol", docs_url=None, redoc_url=None, lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=PKG_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=str(PKG_DIR / "templates"))
 templates.env.filters["skill"] = skills.display
+# markup.render escapa o texto antes de marcar, então o resultado entra sem autoescape
+templates.env.filters["descricao"] = lambda text: Markup(markup.render(text))
 
 
 # ------------------------------------------------------------------ helpers

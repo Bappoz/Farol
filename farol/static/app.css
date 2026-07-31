@@ -326,8 +326,19 @@ table.data tr:hover td { background: var(--surface-2); }
 .timeline li:last-child { border-bottom: none; }
 .timeline time { color: var(--faint); font-size: 11.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
-.desc { font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; color: var(--text); }
+/* Descrição da vaga: HTML montado por farol.markup, não texto cru. */
+.desc { font-size: 13.5px; line-height: 1.6; color: var(--text); }
 .desc.clamp { max-height: 340px; overflow: auto; }
+.desc > :first-child { margin-top: 0; }
+.desc p { margin: 0 0 10px; }
+.desc h4 {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--muted); margin: 16px 0 6px;
+}
+.desc ul, .desc ol { margin: 0 0 10px; padding-left: 20px; }
+.desc li { margin-bottom: 4px; }
+.desc li::marker { color: var(--faint); }
+.desc a { color: var(--accent); overflow-wrap: anywhere; }
 
 /* ---------------------------------------------------------------- kanban */
 

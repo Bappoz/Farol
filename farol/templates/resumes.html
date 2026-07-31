@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Currículos · Farol{% endblock %}
+{% block heading %}Currículos{% endblock %}
+{% block subheading %}Um currículo base e uma versão por vaga que valha o esforço{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:720px">
+  <div class="card-head"><b>Novo currículo</b></div>
+  <div class="card-body">
+    <form method="post" action="/curriculos" class="inline-form">
+      <div class="field" style="flex:1; min-width:200px">
+        <label for="name">Nome</label>
+        <input type="text" id="name" name="name" placeholder="Currículo base">
+      </div>
+      <div class="field" style="min-width:130px">
+        <label for="lang">Idioma</label>
+        <select id="lang" name="lang">
+          {% for code, label in langs.items() %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field" style="flex:1; min-width:220px">
+        <label for="job_id">Direcionado a uma vaga (opcional)</label>
+        <select id="job_id" name="job_id">
+          <option value="">nenhuma — currículo base</option>
+          {% for job in jobs %}
+          <option value="{{ job.id }}">{{ job.title }} · {{ job.company }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="btn btn-primary">{{ icon('plus') }} Criar</button>
+    </form>
+    <p class="small faint" style="margin-top:8px">
+      A lista mostra as vagas que estão no seu pipeline. O conteúdo vem do Perfil — se estiver vazio, preencha lá primeiro.
+      Em inglês, o app troca os títulos das seções e o nome das competências; o texto que você escreveu continua
+      como está para você traduzir dentro do currículo, sem mexer no Perfil.
+    </p>
+  </div>
+</div>
+
+<div class="card" style="max-width:720px; margin-top:14px">
+  <div class="card-head"><b>Já tenho um PDF</b><span class="faint small">o arquivo fica no seu computador, junto com o banco</span></div>
+  <div class="card-body">
+    <form method="post" action="/curriculos/arquivo" class="inline-form" enctype="multipart/form-data">
+      <div class="field" style="flex:1; min-width:200px">
+        <label for="arquivo">Arquivo PDF</label>
+        <input type="file" id="arquivo" name="arquivo" accept="application/pdf,.pdf" required>
+      </div>
+      <div class="field" style="flex:1; min-width:150px">
+        <label for="up-name">Nome (opcional)</label>
+        <input type="text" id="up-name" name="name" placeholder="usa o nome do arquivo">
+      </div>
+      <div class="field" style="min-width:120px">
+        <label for="up-lang">Idioma</label>
+        <select id="up-lang" name="lang">
+          {% for code, label in langs.items() %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field" style="flex:1; min-width:200px">
+        <label for="up-job">Direcionado a uma vaga (opcional)</label>
+        <select id="up-job" name="job_id">
+          <option value="">nenhuma</option>
+          {% for job in jobs %}<option value="{{ job.id }}">{{ job.title }} · {{ job.company }}</option>{% endfor %}
+        </select>
+      </div>
+      <button class="btn btn-primary">{{ icon('plus') }} Enviar</button>
+    </form>
+    <p class="small faint" style="margin-top:8px">
+      Até 15 MB. O app lê o texto do PDF para conferir a cobertura da vaga e sugerir skills ao Perfil —
+      não altera o arquivo.
+    </p>
+  </div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <div class="card-body tight">
+    <table class="data">
+      <thead>
+        <tr><th>Nome</th><th>Idioma</th><th>Direcionado a</th><th>Atualizado</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for item in resumes %}
+        <tr>
+          <td>
+            <a href="/curriculos/{{ item.id }}"><b>{{ item.name }}</b></a>
+            {% if item.kind == 'arquivo' %}<span class="chip">PDF seu</span>{% endif %}
+          </td>
+          <td><span class="chip">{{ 'EN' if item.lang == 'en' else 'PT' }}</span></td>
+          <td class="muted">{% if item.job_title %}{{ item.job_title }} · {{ item.job_company }}{% else %}—{% endif %}</td>
+          <td class="muted nowrap">{{ item.updated_at[:16].replace('T', ' ') }}</td>
+          <td class="nowrap" style="text-align:right">
+            {% if item.kind == 'arquivo' %}
+            <a class="btn btn-sm" href="/curriculos/{{ item.id }}/arquivo" target="_blank">{{ icon('link') }} Abrir</a>
+            {% else %}
+            <a class="btn btn-sm" href="/curriculos/{{ item.id }}/imprimir">{{ icon('print') }} PDF</a>
+            {% endif %}
+            <form method="post" action="/curriculos/{{ item.id }}/excluir" style="display:inline"
+                  data-confirm="Excluir este currículo?">
+              <button class="btn btn-sm btn-quiet btn-danger">{{ icon('trash') }}</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5"><div class="empty"><b>Nenhum currículo ainda</b>Crie o currículo base a partir do Perfil, ou envie um PDF que você já tem.</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Painel · Farol{% endblock %}
+{% block heading %}Painel{% endblock %}
+{% block subheading %}
+  {% if last_run %}Coleta mais recente em {{ last_run[:16].replace('T', ' ') }} (UTC){% else %}Nenhuma coleta ainda{% endif %}
+  · {{ total_jobs }} vagas na base
+  {% if collect_state.next_in_min %} · próxima coleta automática daqui a {{ collect_state.next_in_min }} min{% endif %}
+{% endblock %}
+
+{% block actions %}
+<form method="post" action="/vagas/atualizar">
+  <input type="hidden" name="back" value="/">
+  <button class="btn btn-primary">{{ icon('refresh') }} Atualizar vagas</button>
+</form>
+{% endblock %}
+
+{% block content %}
+
+{% if not profile_complete %}
+<div class="card">
+  <div class="card-head"><b>Comece por aqui</b></div>
+  <div class="card-body">
+    <p class="muted">O Farol usa o seu perfil para pontuar vagas, montar currículo e escolher o que estudar.
+      Sem ele, tudo fica genérico.</p>
+    <div class="row">
+      <a class="btn btn-primary" href="/perfil">1. Preencher perfil</a>
+      <a class="btn" href="/ajustes">2. Definir buscas e fontes</a>
+      <a class="btn" href="/vagas">3. Coletar vagas</a>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="grid c4" style="margin-top:14px">
+  <div class="card stat">
+    <div class="k">Candidaturas ativas</div>
+    <div class="v">{{ total_applications - counts.encerrada }}</div>
+    <div class="d">{{ counts.encerrada }} encerradas</div>
+  </div>
+  <div class="card stat">
+    <div class="k">Enviadas na semana</div>
+    <div class="v">{{ applied_week }}<span class="faint" style="font-size:15px">/{{ weekly_goal }}</span></div>
+    <div class="meter" style="margin-top:6px">
+      <i style="width: {{ [100, (applied_week / weekly_goal * 100) | round | int] | min if weekly_goal else 0 }}%"></i>
+    </div>
+  </div>
+  <div class="card stat">
+    <div class="k">Em entrevista</div>
+    <div class="v">{{ counts.entrevista + counts.teste }}</div>
+    <div class="d">{{ counts.triagem }} em triagem</div>
+  </div>
+  <div class="card stat">
+    <div class="k">Ofertas</div>
+    <div class="v">{{ counts.oferta }}</div>
+    <div class="d">{{ counts.candidatado }} aguardando resposta</div>
+  </div>
+</div>
+
+<div class="grid side" style="margin-top:14px">
+  <div>
+    <div class="section-title">
+      <h2>Melhores vagas para você</h2>
+      <span class="note">ordenadas pelo fit com o seu perfil</span>
+      <div class="grow"></div>
+      <a class="btn btn-sm" href="/vagas">Ver todas</a>
+    </div>
+    <div class="card">
+      <div class="card-body tight divide">
+        {% for job in top_jobs %}
+        <a class="job" href="/vagas/{{ job.id }}">
+          <div class="score s-{{ job.label | replace('possível','possivel') }}">
+            <b>{{ job.score }}</b>
+            <span class="bar"><i style="width: {{ job.score }}%"></i></span>
+          </div>
+          <div class="body">
+            <div class="title">{{ job.title }}</div>
+            <div class="meta">
+              {{ job.company or 'empresa não informada' }}
+              {% if job.location %} · {{ job.location }}{% endif %}
+              {% if job.age is not none %} · há {{ job.age }}d{% endif %}
+              · {{ job.source }}
+            </div>
+            {% if job.score_data.matched %}
+            <div class="why tags">
+              {% for skill in job.score_data.matched[:6] %}<span class="chip on">{{ skill | skill }}</span>{% endfor %}
+            </div>
+            {% endif %}
+          </div>
+        </a>
+        {% else %}
+        <div class="empty">
+          <b>Nenhuma vaga coletada</b>
+          Use “Atualizar vagas” aqui em cima. Você configura os termos de busca em Ajustes.
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-title"><h2>Próximas ações</h2></div>
+    <div class="card">
+      <div class="card-body tight divide">
+        {% for item in upcoming %}
+        <a class="job" href="/candidaturas/{{ item.id }}" style="padding:11px 13px">
+          <div class="body">
+            <div class="title" style="font-size:13px">{{ item.next_action }}</div>
+            <div class="meta">{{ item.title }}{% if item.company %} · {{ item.company }}{% endif %}</div>
+          </div>
+          <span class="chip {{ 'bad' if item.late }}">{{ item.next_action_at }}</span>
+        </a>
+        {% else %}
+        <div class="empty" style="padding:22px 14px">
+          Sem ações agendadas. Ao salvar uma vaga, defina o próximo passo e a data.
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="section-title"><h2>O que o mercado pede</h2></div>
+    <div class="card">
+      <div class="card-body">
+        {% for row in demand_rows %}
+        <div class="gap-row">
+          <span class="name">{{ row.skill | skill }}{% if row.owned %} <span class="chip on" style="font-size:10px">tem</span>{% endif %}</span>
+          <span class="meter"><i style="width: {{ (row.count / max_demand * 100) | round | int }}%; background: {{ 'var(--good)' if row.owned else 'var(--accent)' }}"></i></span>
+          <span class="n">{{ row.count }} vagas</span>
+        </div>
+        {% else %}
+        <div class="empty" style="padding:14px">Colete vagas para ver a demanda real das suas buscas.</div>
+        {% endfor %}
+        {% if demand_rows %}
+        <a class="btn btn-sm" href="/roadmap" style="margin-top:10px">Ver plano de estudo</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="{{ 'en' if lang == 'en' else 'pt-BR' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ data.name }} — {{ data.headline }}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+</head>
+<body>
+<div class="print-bar">
+  <a class="btn" href="/curriculos/{{ resume.id }}">Voltar</a>
+  <button class="btn btn-primary" onclick="window.print()">Salvar como PDF</button>
+  <span class="chip">{{ 'inglês' if lang == 'en' else 'português' }}</span>
+  <span class="small faint">No diálogo de impressão escolha “Salvar como PDF”, margens padrão, sem cabeçalho e rodapé.</span>
+</div>
+
+<article class="sheet">
+  <header>
+    <h1>{{ data.name }}</h1>
+    <div class="contact">
+      {{ data.headline }}
+      {% if data.city %} · {{ data.city }}{% endif %}
+      {% if data.email %} · {{ data.email }}{% endif %}
+      {% if data.phone %} · {{ data.phone }}{% endif %}
+      {% for link in data.links %} · {{ link.url }}{% endfor %}
+    </div>
+  </header>
+
+  {% if data.summary %}
+  <h2>{{ sections.summary }}</h2>
+  <p>{{ data.summary }}</p>
+  {% endif %}
+
+  {% if data.skills %}
+  <h2>{{ sections.skills }}</h2>
+  <p class="skills-line">{{ data.skills | map('skill', lang) | join(' · ') }}</p>
+  {% endif %}
+
+  {% if data.experience %}
+  <h2>{{ sections.experience }}</h2>
+  {% for item in data.experience %}
+  <div class="entry">
+    <div class="line">
+      <span><b>{{ item.role }}</b>{% if item.org %} — {{ item.org }}{% endif %}</span>
+      <span class="when">{{ item.period }}</span>
+    </div>
+    {% if item.bullets %}<ul>{% for bullet in item.bullets %}<li>{{ bullet }}</li>{% endfor %}</ul>{% endif %}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if data.projects %}
+  <h2>{{ sections.projects }}</h2>
+  {% for item in data.projects %}
+  <div class="entry">
+    <div class="line">
+      <span><b>{{ item.name }}</b>{% if item.stack %} — {{ item.stack }}{% endif %}</span>
+      <span class="when">{{ item.url }}</span>
+    </div>
+    {% if item.bullets %}<ul>{% for bullet in item.bullets %}<li>{{ bullet }}</li>{% endfor %}</ul>{% endif %}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if data.education %}
+  <h2>{{ sections.education }}</h2>
+  {% for item in data.education %}
+  <div class="entry">
+    <div class="line">
+      <span><b>{{ item.course }}</b>{% if item.school %} — {{ item.school }}{% endif %}</span>
+      <span class="when">{{ item.period }}</span>
+    </div>
+    {% if item.note %}<div>{{ item.note }}</div>{% endif %}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if data.languages %}
+  <h2>{{ sections.languages }}</h2>
+  <p>{% for item in data.languages %}{{ item.name }} ({{ item.level }}){% if not loop.last %} · {% endif %}{% endfor %}</p>
+  {% endif %}
+</article>
+</body>
+</html>

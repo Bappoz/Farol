@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ application.title }} · Farol{% endblock %}
+{% block heading %}{{ application.title }}{% endblock %}
+{% block subheading %}
+  {{ application.company or 'empresa não informada' }} ·
+  criada em {{ application.created_at[:10] }}
+  {% if application.applied_at %} · candidatura enviada em {{ application.applied_at }}{% endif %}
+{% endblock %}
+
+{% block actions %}
+<div class="row">
+  {% if application.url %}<a class="btn" href="{{ application.url }}" target="_blank" rel="noreferrer">{{ icon('link') }} Anúncio</a>{% endif %}
+  {% if job %}<a class="btn" href="/vagas/{{ job.id }}">Fit {{ job.score }}</a>{% endif %}
+  <form method="post" action="/candidaturas/{{ application.id }}/excluir"
+        data-confirm="Remover esta candidatura e todo o histórico dela?">
+    <button class="btn btn-danger btn-quiet">{{ icon('trash') }}</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block content %}
+<form method="post" action="/candidaturas/{{ application.id }}">
+<div class="grid side">
+  <div>
+    <div class="card">
+      <div class="card-head"><b>Dados</b></div>
+      <div class="card-body">
+        <div class="grid c2">
+          <div class="field">
+            <label for="title">Cargo</label>
+            <input type="text" id="title" name="title" value="{{ application.title }}">
+          </div>
+          <div class="field">
+            <label for="company">Empresa</label>
+            <input type="text" id="company" name="company" value="{{ application.company }}">
+          </div>
+        </div>
+        <div class="field">
+          <label for="url">Link da vaga</label>
+          <input type="url" id="url" name="url" value="{{ application.url }}">
+        </div>
+        <div class="grid c3">
+          <div class="field">
+            <label for="status">Etapa</label>
+            <select id="status" name="status">
+              {% for status in statuses %}
+              <option value="{{ status }}" {{ 'selected' if application.status == status }}>{{ status_labels[status] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="next_action">Próxima ação</label>
+            <input type="text" id="next_action" name="next_action" value="{{ application.next_action }}"
+                   placeholder="Enviar follow-up ao recrutador">
+          </div>
+          <div class="field">
+            <label for="next_action_at">Quando</label>
+            <input type="date" id="next_action_at" name="next_action_at" value="{{ application.next_action_at or '' }}">
+          </div>
+        </div>
+        <div class="field">
+          <label for="contact">Contato</label>
+          <input type="text" id="contact" name="contact" value="{{ application.contact }}"
+                 placeholder="Nome do recrutador, e-mail, LinkedIn">
+        </div>
+        <div class="field">
+          <label for="notes">Anotações</label>
+          <textarea id="notes" name="notes" rows="5" placeholder="Salário conversado, stack do time, o que perguntaram...">{{ application.notes }}</textarea>
+        </div>
+        <div class="row end">
+          <button class="btn btn-primary">{{ icon('save') }} Salvar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><b>Preparação</b><span class="faint small">respostas prontas evitam travar na hora</span></div>
+      <div class="card-body">
+        <ol class="muted" style="margin:0 0 12px 18px; font-size:13px">
+          {% for question in questions[:8] %}<li style="margin-bottom:4px">{{ question }}</li>{% endfor %}
+        </ol>
+        <div class="field" style="margin:0">
+          <label for="prep">Suas respostas e histórias (formato: situação, tarefa, ação, resultado)</label>
+          <textarea id="prep" name="prep" rows="8">{{ application.prep }}</textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-head"><b>Histórico</b></div>
+      <div class="card-body">
+        <ul class="timeline">
+          {% for event in events %}
+          <li>
+            <time>{{ event.created_at[5:16].replace('T', ' ') }}</time>
+            <span>{{ event.note }}</span>
+          </li>
+          {% else %}
+          <li class="faint">Sem registros ainda.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><b>Currículos</b></div>
+      <div class="card-body">
+        {% for item in resumes %}
+        <div class="row" style="justify-content:space-between; margin-bottom:6px">
+          <a href="/curriculos/{{ item.id }}">{{ item.name }}</a>
+          <a class="btn btn-sm" href="/curriculos/{{ item.id }}/imprimir">{{ icon('print') }}</a>
+        </div>
+        {% else %}
+        <p class="small faint">Nenhum currículo ligado a esta candidatura.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+</form>
+
+<div class="card" style="max-width:640px; margin-top:14px">
+  <div class="card-head"><b>Registrar acontecimento</b></div>
+  <div class="card-body">
+    <form method="post" action="/candidaturas/{{ application.id }}/eventos" class="inline-form">
+      <div class="field" style="flex:1; min-width:260px">
+        <label for="note">O que aconteceu</label>
+        <input type="text" id="note" name="note" required placeholder="Recrutadora respondeu pedindo disponibilidade">
+      </div>
+      <button class="btn">{{ icon('plus') }} Registrar</button>
+    </form>
+  </div>
+</div>
+
+{% if job %}
+<div class="card" style="margin-top:14px">
+  <div class="card-head"><b>Descrição da vaga</b><div class="grow"></div><a class="btn btn-sm" href="/vagas/{{ job.id }}">Ver análise de fit</a></div>
+  <div class="card-body"><div class="desc clamp">{{ job.description }}</div></div>
+</div>
+{% endif %}
+{% endblock %}

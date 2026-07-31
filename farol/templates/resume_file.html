@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ resume.name }} · Farol{% endblock %}
+{% block heading %}{{ resume.name }}{% endblock %}
+{% block subheading %}
+  PDF enviado por você
+  {% if job %} · direcionado a {{ job.title }} · {{ job.company }}{% endif %}
+  · {{ 'em inglês' if resume.lang == 'en' else 'em português' }}
+  · {{ resume.updated_at[:16].replace('T', ' ') }}
+{% endblock %}
+
+{% block actions %}
+<div class="row">
+  <a class="btn" href="/curriculos/{{ resume.id }}/arquivo" target="_blank">{{ icon('link') }} Abrir</a>
+  <a class="btn" href="/curriculos/{{ resume.id }}/arquivo?baixar=1">{{ icon('save') }} Baixar</a>
+  <form method="post" action="/curriculos/{{ resume.id }}/excluir"
+        data-confirm="Excluir este currículo e o arquivo PDF do disco?">
+    <button class="btn btn-quiet btn-danger">{{ icon('trash') }}</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="grid side">
+  <div>
+    <div class="card">
+      <div class="card-head">
+        <b>Pré-visualização</b>
+        <span class="faint small">o arquivo continua sendo o seu, o app não altera nada</span>
+      </div>
+      <div class="card-body" style="padding:0">
+        <object data="/curriculos/{{ resume.id }}/arquivo" type="application/pdf"
+                style="width:100%; height:640px; border:0; display:block">
+          <p class="empty">
+            O visualizador embutido não abriu.
+            <a href="/curriculos/{{ resume.id }}/arquivo" target="_blank">Abrir o PDF em outra aba</a>.
+          </p>
+        </object>
+      </div>
+    </div>
+
+    {% if text %}
+    <div class="card">
+      <div class="card-head"><b>Texto extraído</b><span class="faint small">é isso que um filtro de ATS enxerga</span></div>
+      <div class="card-body"><div class="desc clamp">{{ text }}</div></div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div>
+    {% if warning %}
+    <div class="card">
+      <div class="card-head"><b>Sem texto para ler</b></div>
+      <div class="card-body">
+        <p class="small muted">{{ warning }}</p>
+        <p class="small faint">
+          PDF sem camada de texto costuma ser reprovado por filtro automático de currículo — o robô do
+          RH não lê imagem. Se for o seu caso, vale exportar de novo a partir do documento original.
+        </p>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if job %}
+    <div class="card">
+      <div class="card-head"><b>Cobertura da vaga</b></div>
+      <div class="card-body">
+        <p class="small muted">O que a vaga cita e aparece no seu PDF:</p>
+        <div class="tags">
+          {% for skill in cobertas %}<span class="chip on">{{ skill | skill(resume.lang) }}</span>{% endfor %}
+          {% if not cobertas %}<span class="faint small">nada em comum — provavelmente é o PDF errado para esta vaga.</span>{% endif %}
+        </div>
+        {% if faltantes %}
+        <p class="small muted" style="margin:12px 0 5px">Citado na vaga e ausente do PDF:</p>
+        <div class="tags">
+          {% for skill in faltantes %}<span class="chip">{{ skill | skill(resume.lang) }}</span>{% endfor %}
+        </div>
+        <p class="small faint" style="margin-top:8px">
+          Só inclua o que você realmente sabe. Se a lista for longa, talvez valha montar um currículo
+          direcionado no editor.
+        </p>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if novas %}
+    <div class="card">
+      <div class="card-head"><b>Skills encontradas no PDF</b><span class="faint small">e ausentes do seu Perfil</span></div>
+      <div class="card-body">
+        <form method="post" action="/curriculos/{{ resume.id }}/skills">
+          {% for skill in novas %}
+          <div class="check">
+            <input type="checkbox" id="ns-{{ loop.index }}" name="skill" value="{{ skill }}" checked>
+            <label for="ns-{{ loop.index }}">{{ skill | skill(resume.lang) }}</label>
+          </div>
+          {% endfor %}
+          <button class="btn btn-sm btn-primary" style="margin-top:8px">
+            {{ icon('plus', 13) }} Adicionar ao Perfil
+          </button>
+          <p class="small faint" style="margin-top:8px">
+            Desmarque o que você não usaria numa conversa técnica. Isso muda a pontuação das vagas.
+          </p>
+        </form>
+      </div>
+    </div>
+    {% elif found %}
+    <div class="card">
+      <div class="card-head"><b>Skills encontradas no PDF</b></div>
+      <div class="card-body">
+        <div class="tags">
+          {% for skill in found[:18] %}<span class="chip on">{{ skill | skill(resume.lang) }}</span>{% endfor %}
+        </div>
+        <p class="small faint" style="margin-top:8px">Todas já estão no seu Perfil.</p>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-head"><b>Este é um PDF pronto</b></div>
+      <div class="card-body">
+        <p class="small faint">
+          O Farol guarda o arquivo, lê o texto e liga à vaga — mas não edita PDF. Para uma versão
+          adaptada a uma vaga específica (ou em inglês), crie um currículo no editor a partir do Perfil.
+        </p>
+        <a class="btn btn-sm" href="/curriculos">Voltar aos currículos</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Pipeline · Farol{% endblock %}
+{% block heading %}Pipeline{% endblock %}
+{% block subheading %}Arraste o cartão para mudar de etapa — o histórico fica registrado{% endblock %}
+
+{% block content %}
+<div class="board" data-board>
+  {% for status in statuses %}
+  <section class="col" data-status="{{ status }}">
+    <header>
+      <b>{{ status_labels[status] }}</b>
+      <span class="count">{{ columns[status] | length }}</span>
+    </header>
+    <div class="items">
+      {% for item in columns[status] %}
+      <a class="ticket" href="/candidaturas/{{ item.id }}" draggable="true" data-id="{{ item.id }}">
+        <b>{{ item.title }}</b>
+        <span class="co">{{ item.company or '—' }}</span>
+        {% if item.next_action %}
+        <span class="next {{ 'late' if item.late }}">
+          {{ icon('clock', 12) }} {{ item.next_action }}{% if item.next_action_at %} · {{ item.next_action_at[5:] }}{% endif %}
+        </span>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+</div>
+
+<div class="card" style="margin-top:18px; max-width:640px">
+  <div class="card-head"><b>Adicionar candidatura manualmente</b><span class="faint small">vaga que você achou fora do Farol</span></div>
+  <div class="card-body">
+    <form method="post" action="/candidaturas" class="inline-form">
+      <div class="field" style="flex:1; min-width:180px">
+        <label for="title">Cargo</label>
+        <input type="text" id="title" name="title" required placeholder="Desenvolvedor back-end júnior">
+      </div>
+      <div class="field" style="flex:1; min-width:150px">
+        <label for="company">Empresa</label>
+        <input type="text" id="company" name="company">
+      </div>
+      <div class="field" style="flex:1; min-width:180px">
+        <label for="url">Link</label>
+        <input type="url" id="url" name="url" placeholder="https://">
+      </div>
+      <button class="btn btn-primary">{{ icon('plus') }} Adicionar</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

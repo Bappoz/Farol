@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Ajustes · Farol{% endblock %}
+{% block heading %}Ajustes{% endblock %}
+{% block subheading %}Fontes, termos de busca e preferências de pontuação{% endblock %}
+
+{% block content %}
+<div class="grid side">
+  <div>
+    <div class="card">
+      <div class="card-head"><b>Termos de busca</b><span class="faint small">cada termo é consultado em todas as fontes ativas</span></div>
+      <div class="card-body">
+        <table class="data">
+          <tbody>
+            {% for search in searches %}
+            <tr>
+              <td><b>{{ search.label }}</b><div class="faint small mono">{{ search.keywords }}</div></td>
+              <td class="nowrap" style="text-align:right">
+                <form method="post" action="/ajustes/buscas" style="display:inline">
+                  <input type="hidden" name="acao" value="toggle">
+                  <input type="hidden" name="id" value="{{ search.id }}">
+                  <button class="btn btn-sm">{{ 'ativa' if search.enabled else 'pausada' }}</button>
+                </form>
+                <form method="post" action="/ajustes/buscas" style="display:inline">
+                  <input type="hidden" name="acao" value="remover">
+                  <input type="hidden" name="id" value="{{ search.id }}">
+                  <button class="btn btn-sm btn-quiet btn-danger">{{ icon('trash', 13) }}</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <form method="post" action="/ajustes/buscas" class="inline-form" style="margin-top:12px">
+          <input type="hidden" name="acao" value="adicionar">
+          <div class="field" style="flex:1; min-width:160px">
+            <label for="s-label">Rótulo</label>
+            <input type="text" id="s-label" name="label" placeholder="Back-end júnior">
+          </div>
+          <div class="field" style="flex:1; min-width:200px">
+            <label for="s-keywords">Termo enviado às fontes</label>
+            <input type="text" id="s-keywords" name="keywords" placeholder="junior backend python">
+          </div>
+          <button class="btn">{{ icon('plus', 13) }} Adicionar</button>
+        </form>
+        <p class="small faint" style="margin-top:8px">
+          Termos em inglês trazem muito mais resultado nesses portais. Use de 2 a 4 termos: mais que isso deixa a coleta lenta e repetida.
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><b>Fontes</b><span class="faint small">o botão “testar” roda só aquela fonte e mostra o erro cru</span></div>
+      <div class="card-body tight">
+        <table class="data">
+          <thead><tr><th>Fonte</th><th>Última coleta</th><th>Resultado</th><th></th></tr></thead>
+          <tbody>
+            {% for source in sources %}
+            <tr>
+              <td>
+                <b>{{ source.label }}</b>
+                <div class="faint small mono">{{ source.kind }}{% if source.url %} · {{ source.url[:48] }}{% endif %}</div>
+              </td>
+              <td class="muted nowrap">{{ source.last_run_at[:16].replace('T', ' ') if source.last_run_at else '—' }}</td>
+              <td>
+                {% if source.last_status == 'ok' %}
+                  <span class="chip on">{{ source.last_count }} vagas</span>
+                {% elif source.last_status %}
+                  <span class="chip bad">erro</span>
+                {% else %}
+                  <span class="faint small">nunca rodou</span>
+                {% endif %}
+                {% if source.last_error %}<div class="faint small mono" style="margin-top:4px">{{ source.last_error[:160] }}</div>{% endif %}
+              </td>
+              <td class="nowrap" style="text-align:right">
+                <form method="post" action="/ajustes/fontes" style="display:inline">
+                  <input type="hidden" name="acao" value="testar">
+                  <input type="hidden" name="id" value="{{ source.id }}">
+                  <button class="btn btn-sm">testar</button>
+                </form>
+                <form method="post" action="/ajustes/fontes" style="display:inline">
+                  <input type="hidden" name="acao" value="toggle">
+                  <input type="hidden" name="id" value="{{ source.id }}">
+                  <button class="btn btn-sm">{{ 'ativa' if source.enabled else 'desligada' }}</button>
+                </form>
+                {% if source.kind == 'rss' %}
+                <form method="post" action="/ajustes/fontes" style="display:inline">
+                  <input type="hidden" name="acao" value="remover">
+                  <input type="hidden" name="id" value="{{ source.id }}">
+                  <button class="btn btn-sm btn-quiet btn-danger">{{ icon('trash', 13) }}</button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <div style="padding:12px 14px; border-top:1px solid var(--border)">
+          <form method="post" action="/ajustes/fontes" class="inline-form">
+            <input type="hidden" name="acao" value="adicionar">
+            <div class="field" style="min-width:150px">
+              <label for="f-label">Nome do feed</label>
+              <input type="text" id="f-label" name="label" placeholder="Vagas Brasil">
+            </div>
+            <div class="field" style="flex:1; min-width:240px">
+              <label for="f-url">URL do RSS/Atom</label>
+              <input type="url" id="f-url" name="url" placeholder="https://exemplo.com/vagas.rss">
+            </div>
+            <button class="btn">{{ icon('plus', 13) }} Adicionar feed</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <form method="post" action="/ajustes">
+      <div class="card">
+        <div class="card-head"><b>Pontuação e metas</b></div>
+        <div class="card-body">
+          <div class="field">
+            <label for="region_preference">Você quer vagas que aceitem</label>
+            <select id="region_preference" name="region_preference">
+              <option value="brazil" {{ 'selected' if settings.region_preference == 'brazil' }}>Brasil</option>
+              <option value="latam" {{ 'selected' if settings.region_preference == 'latam' }}>América Latina</option>
+              <option value="worldwide" {{ 'selected' if settings.region_preference == 'worldwide' }}>Qualquer lugar</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="keywords">Palavras-chave que somam</label>
+            <input type="text" id="keywords" name="keywords" value="{{ settings.keywords or '' }}"
+                   placeholder="estágio, trainee, first job, mentoria">
+          </div>
+          <div class="field">
+            <label for="exclude_keywords">Termos que derrubam a nota (no título)</label>
+            <input type="text" id="exclude_keywords" name="exclude_keywords" value="{{ settings.exclude_keywords }}">
+          </div>
+          <div class="grid c2">
+            <div class="field">
+              <label for="weekly_goal">Meta semanal de candidaturas</label>
+              <input type="number" id="weekly_goal" name="weekly_goal" min="1" max="50" value="{{ settings.weekly_goal }}">
+            </div>
+            <div class="field">
+              <label for="min_score">Fit mínimo na lista</label>
+              <input type="number" id="min_score" name="min_score" min="0" max="100" step="5" value="{{ settings.min_score }}">
+            </div>
+          </div>
+          <div class="field">
+            <label for="refresh_cooldown_min">Intervalo mínimo entre coletas automáticas (min)</label>
+            <input type="number" id="refresh_cooldown_min" name="refresh_cooldown_min" min="0" max="1440"
+                   value="{{ settings.refresh_cooldown_min }}">
+            <div class="help">
+              O app coleta uma vez quando você o abre. Reabrir dentro desse intervalo não dispara requisição
+              nenhuma — é o que evita rajada nos portais e o CAPTCHA que vem depois dela. O botão
+              “Atualizar vagas” ignora o intervalo.
+            </div>
+          </div>
+          <div class="row end"><button class="btn btn-primary">{{ icon('save') }} Salvar</button></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><b>Assistente por IA (opcional)</b></div>
+        <div class="card-body">
+          <div class="field">
+            <label for="anthropic_api_key">Chave da API Anthropic</label>
+            <input type="password" id="anthropic_api_key" name="anthropic_api_key"
+                   value="{{ settings.anthropic_api_key }}" placeholder="sk-ant-...">
+            <div class="help">Fica só no seu banco local ({{ db_path }}). Sem chave, o app funciona inteiro — só os botões de revisão de texto ficam ocultos.</div>
+          </div>
+          <div class="field">
+            <label for="anthropic_model">Modelo</label>
+            <input type="text" id="anthropic_model" name="anthropic_model" value="{{ settings.anthropic_model }}">
+          </div>
+          <div class="row end"><button class="btn">{{ icon('save') }} Salvar</button></div>
+        </div>
+      </div>
+    </form>
+
+    <div class="card">
+      <div class="card-head"><b>Dados</b></div>
+      <div class="card-body">
+        <p class="small muted">{{ total_jobs }} vagas · banco em <span class="mono">{{ db_path }}</span></p>
+        <form method="post" action="/ajustes/exportar">
+          <button class="btn btn-sm">Exportar backup (JSON)</button>
+        </form>
+        <p class="small faint" style="margin-top:8px">
+          Tudo é local. Para levar para outra máquina, copie o arquivo do banco.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

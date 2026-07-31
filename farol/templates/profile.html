@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Perfil · Farol{% endblock %}
+{% block heading %}Perfil{% endblock %}
+{% block subheading %}Fonte única da verdade: alimenta o fit score, os currículos e o roadmap{% endblock %}
+
+{% block content %}
+<form method="post" action="/perfil">
+  <div class="card">
+    <div class="card-head"><b>Identificação</b></div>
+    <div class="card-body">
+      <div class="grid c3">
+        <div class="field">
+          <label for="name">Nome completo</label>
+          <input type="text" id="name" name="name" value="{{ profile.name }}">
+        </div>
+        <div class="field">
+          <label for="headline">Cargo pretendido</label>
+          <input type="text" id="headline" name="headline" value="{{ profile.headline }}"
+                 placeholder="Desenvolvedor back-end júnior">
+        </div>
+        <div class="field">
+          <label for="city">Cidade</label>
+          <input type="text" id="city" name="city" value="{{ profile.city }}" placeholder="Curitiba, PR">
+        </div>
+        <div class="field">
+          <label for="email">E-mail</label>
+          <input type="email" id="email" name="email" value="{{ profile.email }}">
+        </div>
+        <div class="field">
+          <label for="phone">Telefone / WhatsApp</label>
+          <input type="text" id="phone" name="phone" value="{{ profile.phone }}">
+        </div>
+        <div class="field">
+          <label for="area">Área</label>
+          <select id="area" name="area">
+            {% for key, label in areas.items() %}
+            <option value="{{ key }}" {{ 'selected' if profile.area == key }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="seniority">Nível que você busca</label>
+          <select id="seniority" name="seniority">
+            {% for key, label in seniorities.items() %}
+            <option value="{{ key }}" {{ 'selected' if profile.seniority == key }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label for="summary">Resumo profissional</label>
+        <textarea id="summary" name="summary" rows="3">{{ profile.summary }}</textarea>
+        <div class="help">Se deixar vazio, o app monta um rascunho ao gerar o currículo.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><b>Competências</b><span class="faint small">separe por vírgula — o app reconhece apelidos (js, k8s, postgres…)</span></div>
+    <div class="card-body">
+      <div class="field" style="margin:0">
+        <label for="skills">Suas skills</label>
+        <input type="text" id="skills" name="skills" list="skills-known"
+               value="{{ profile.skills | join(', ') }}"
+               placeholder="python, sql, docker, react, inglês">
+        <datalist id="skills-known">
+          {% for skill in all_skills %}<option value="{{ skill }}"></option>{% endfor %}
+        </datalist>
+        <div class="help">Só liste o que você usaria numa conversa técnica. Skill inflada aparece na entrevista.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><b>Links</b><div class="grow"></div>
+      <button type="button" class="btn btn-sm" data-add="link">{{ icon('plus', 13) }} Adicionar</button></div>
+    <div class="card-body">
+      <div data-group="link">
+        {% for link in profile.links %}
+        <div class="repeat-item">
+          <div class="row-head"><b>link</b><div class="grow"></div>
+            <button type="button" class="btn btn-sm btn-quiet" data-remove>{{ icon('x', 13) }}</button></div>
+          <div class="grid c2">
+            <div class="field"><label>Rótulo</label><input type="text" name="link_label" value="{{ link.label }}"></div>
+            <div class="field" style="margin:0"><label>URL</label><input type="url" name="link_url" value="{{ link.url }}"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% if not profile.links %}<p class="faint small">GitHub e LinkedIn valem mais que qualquer adjetivo no currículo.</p>{% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><b>Experiência</b><span class="faint small">inclui estágio, freela, bolsa e voluntariado</span>
+      <div class="grow"></div>
+      <button type="button" class="btn btn-sm" data-add="exp">{{ icon('plus', 13) }} Adicionar</button></div>
+    <div class="card-body">
+      <div data-group="exp">
+        {% for item in profile.experience %}
+        <div class="repeat-item">
+          <div class="row-head"><b>experiência</b><div class="grow"></div>
+            <button type="button" class="btn btn-sm btn-quiet" data-remove>{{ icon('x', 13) }}</button></div>
+          <div class="grid c3">
+            <div class="field"><label>Cargo</label><input type="text" name="exp_role" value="{{ item.role }}"></div>
+            <div class="field"><label>Organização</label><input type="text" name="exp_org" value="{{ item.org }}"></div>
+            <div class="field"><label>Período</label><input type="text" name="exp_period" value="{{ item.period }}" placeholder="2024 – atual"></div>
+          </div>
+          <div class="field" style="margin:0">
+            <label>Entregas (uma por linha)</label>
+            <textarea name="exp_bullets" rows="3">{{ item.bullets | join('\n') }}</textarea>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><b>Projetos</b><span class="faint small">para o primeiro emprego, é a parte que mais pesa</span>
+      <div class="grow"></div>
+      <button type="button" class="btn btn-sm" data-add="proj">{{ icon('plus', 13) }} Adicionar</button></div>
+    <div class="card-body">
+      <div data-group="proj">
+        {% for item in profile.projects %}
+        <div class="repeat-item">
+          <div class="row-head"><b>projeto</b><div class="grow"></div>
+            <button type="button" class="btn btn-sm btn-quiet" data-remove>{{ icon('x', 13) }}</button></div>
+          <div class="grid c3">
+            <div class="field"><label>Nome</label><input type="text" name="proj_name" value="{{ item.name }}"></div>
+            <div class="field"><label>Link</label><input type="url" name="proj_url" value="{{ item.url }}"></div>
+            <div class="field"><label>Stack</label><input type="text" name="proj_stack" value="{{ item.stack }}"></div>
+          </div>
+          <div class="field" style="margin:0">
+            <label>O que ele faz e o que você resolveu (uma linha por marcador)</label>
+            <textarea name="proj_bullets" rows="3">{{ item.bullets | join('\n') }}</textarea>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><b>Formação</b><div class="grow"></div>
+      <button type="button" class="btn btn-sm" data-add="edu">{{ icon('plus', 13) }} Adicionar</button></div>
+    <div class="card-body">
+      <div data-group="edu">
+        {% for item in profile.education %}
+        <div class="repeat-item">
+          <div class="row-head"><b>formação</b><div class="grow"></div>
+            <button type="button" class="btn btn-sm btn-quiet" data-remove>{{ icon('x', 13) }}</button></div>
+          <div class="grid c3">
+            <div class="field"><label>Curso</label><input type="text" name="edu_course" value="{{ item.course }}"></div>
+            <div class="field"><label>Instituição</label><input type="text" name="edu_school" value="{{ item.school }}"></div>
+            <div class="field"><label>Período</label><input type="text" name="edu_period" value="{{ item.period }}"></div>
+          </div>
+          <div class="field" style="margin:0"><label>Observação</label><input type="text" name="edu_note" value="{{ item.note }}"></div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><b>Idiomas</b><div class="grow"></div>
+      <button type="button" class="btn btn-sm" data-add="lang">{{ icon('plus', 13) }} Adicionar</button></div>
+    <div class="card-body">
+      <div data-group="lang">
+        {% for item in profile.languages %}
+        <div class="repeat-item">
+          <div class="row-head"><b>idioma</b><div class="grow"></div>
+            <button type="button" class="btn btn-sm btn-quiet" data-remove>{{ icon('x', 13) }}</button></div>
+          <div class="grid c2">
+            <div class="field" style="margin:0"><label>Idioma</label><input type="text" name="lang_name" value="{{ item.name }}"></div>
+            <div class="field" style="margin:0"><label>Nível</label><input type="text" name="lang_level" value="{{ item.level }}" placeholder="B2 / avançado"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% if not profile.languages %}<p class="faint small">Vaga remota internacional filtra por inglês. Registre o nível real.</p>{% endif %}
+    </div>
+  </div>
+
+  <div class="row end" style="margin-top:14px">
+    <button class="btn btn-primary">{{ icon('save') }} Salvar perfil e repontuar vagas</button>
+  </div>
+</form>
+
+<template id="tpl-link">
+  <div class="repeat-item">
+    <div class="row-head"><b>link</b><div class="grow"></div>
+      <button type="button" class="btn btn-sm btn-quiet" data-remove>&times;</button></div>
+    <div class="grid c2">
+      <div class="field"><label>Rótulo</label><input type="text" name="link_label" placeholder="GitHub"></div>
+      <div class="field" style="margin:0"><label>URL</label><input type="url" name="link_url" placeholder="https://github.com/voce"></div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-exp">
+  <div class="repeat-item">
+    <div class="row-head"><b>experiência</b><div class="grow"></div>
+      <button type="button" class="btn btn-sm btn-quiet" data-remove>&times;</button></div>
+    <div class="grid c3">
+      <div class="field"><label>Cargo</label><input type="text" name="exp_role"></div>
+      <div class="field"><label>Organização</label><input type="text" name="exp_org"></div>
+      <div class="field"><label>Período</label><input type="text" name="exp_period" placeholder="2024 – atual"></div>
+    </div>
+    <div class="field" style="margin:0">
+      <label>Entregas (uma por linha)</label>
+      <textarea name="exp_bullets" rows="3"></textarea>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-proj">
+  <div class="repeat-item">
+    <div class="row-head"><b>projeto</b><div class="grow"></div>
+      <button type="button" class="btn btn-sm btn-quiet" data-remove>&times;</button></div>
+    <div class="grid c3">
+      <div class="field"><label>Nome</label><input type="text" name="proj_name"></div>
+      <div class="field"><label>Link</label><input type="url" name="proj_url" placeholder="https://"></div>
+      <div class="field"><label>Stack</label><input type="text" name="proj_stack" placeholder="Python, FastAPI, Postgres"></div>
+    </div>
+    <div class="field" style="margin:0">
+      <label>O que ele faz e o que você resolveu (uma linha por marcador)</label>
+      <textarea name="proj_bullets" rows="3"></textarea>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-edu">
+  <div class="repeat-item">
+    <div class="row-head"><b>formação</b><div class="grow"></div>
+      <button type="button" class="btn btn-sm btn-quiet" data-remove>&times;</button></div>
+    <div class="grid c3">
+      <div class="field"><label>Curso</label><input type="text" name="edu_course"></div>
+      <div class="field"><label>Instituição</label><input type="text" name="edu_school"></div>
+      <div class="field"><label>Período</label><input type="text" name="edu_period"></div>
+    </div>
+    <div class="field" style="margin:0"><label>Observação</label><input type="text" name="edu_note"></div>
+  </div>
+</template>
+
+<template id="tpl-lang">
+  <div class="repeat-item">
+    <div class="row-head"><b>idioma</b><div class="grow"></div>
+      <button type="button" class="btn btn-sm btn-quiet" data-remove>&times;</button></div>
+    <div class="grid c2">
+      <div class="field" style="margin:0"><label>Idioma</label><input type="text" name="lang_name"></div>
+      <div class="field" style="margin:0"><label>Nível</label><input type="text" name="lang_level" placeholder="B2 / avançado"></div>
+    </div>
+  </div>
+</template>
+{% endblock %}

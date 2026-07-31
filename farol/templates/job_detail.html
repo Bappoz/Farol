@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ job.title }} · Farol{% endblock %}
+{% block heading %}{{ job.title }}{% endblock %}
+{% block subheading %}
+  {{ job.company or 'empresa não informada' }}
+  · {{ work_mode_labels.get(job.work_mode, job.work_mode) }}
+  {% if job.location %} · {{ job.location }}{% endif %}
+  {% if job.salary %} · {{ job.salary }}{% endif %}
+  {% if job.age is not none %} · publicada há {{ job.age }} dias{% endif %}
+  · <span class="mono">{{ job.source }}</span>
+{% endblock %}
+
+{% block actions %}
+<div class="row">
+  {% if job.url %}<a class="btn" href="{{ job.url }}" target="_blank" rel="noreferrer">{{ icon('link') }} Abrir anúncio</a>{% endif %}
+  {% if application %}
+    <a class="btn" href="/candidaturas/{{ application.id }}">Ver no pipeline</a>
+  {% else %}
+    <form method="post" action="/vagas/{{ job.id }}/salvar">
+      <button class="btn btn-primary">{{ icon('plus') }} Salvar no pipeline</button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="grid side">
+  <div>
+    <div class="card">
+      <div class="card-head">
+        <b>Descrição</b>
+        <div class="grow"></div>
+        <div class="tags">
+          {% for tag in job.tags[:8] %}<span class="chip">{{ tag }}</span>{% endfor %}
+        </div>
+      </div>
+      <div class="card-body">
+        {% if job.description %}
+          <div class="desc clamp">{{ job.description }}</div>
+        {% else %}
+          <p class="faint">Esta fonte não trouxe a descrição completa. Abra o anúncio original.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><b>Preparação</b><span class="faint small">perguntas prováveis nesta vaga</span></div>
+      <div class="card-body">
+        <ol class="muted" style="margin:0 0 0 18px; font-size:13px">
+          {% for question in questions %}<li style="margin-bottom:5px">{{ question }}</li>{% endfor %}
+        </ol>
+        {% if application %}
+        <p class="small faint" style="margin-top:10px">Anote suas respostas em
+          <a href="/candidaturas/{{ application.id }}">preparação da candidatura</a>.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-head">
+        <b>Fit {{ job.score }}/100</b>
+        <span class="chip {{ 'on' if job.score >= 70 else ('accent' if job.score >= 50 else '') }}">{{ job.label }}</span>
+      </div>
+      <div class="card-body">
+        {% for part in job.score_data.components %}
+        <div style="margin-bottom:10px">
+          <div class="row" style="justify-content:space-between">
+            <span class="small">{{ part.label }}</span>
+            <span class="small faint">{{ part.points }}/{{ part.max }}</span>
+          </div>
+          <div class="meter" style="margin:4px 0 3px"><i style="width: {{ (part.points / part.max * 100) | round | int }}%"></i></div>
+          <div class="small faint">{{ part.detail }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><b>Suas skills nesta vaga</b></div>
+      <div class="card-body">
+        <div class="tags">
+          {% for skill in job.score_data.matched %}<span class="chip on">{{ skill | skill }}</span>{% endfor %}
+          {% if not job.score_data.matched %}<span class="faint small">Nenhuma das skills do seu perfil aparece aqui.</span>{% endif %}
+        </div>
+        {% if job.score_data.missing %}
+        <div style="margin-top:12px">
+          <div class="small muted" style="margin-bottom:5px">A vaga também pede:</div>
+          <div class="tags">
+            {% for skill in job.score_data.missing %}<span class="chip">{{ skill | skill }}</span>{% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><b>Currículo para esta vaga</b></div>
+      <div class="card-body">
+        {% for item in resumes %}
+        <div class="row" style="justify-content:space-between; margin-bottom:6px">
+          <a href="/curriculos/{{ item.id }}">{{ item.name }}</a>
+          <a class="btn btn-sm" href="/curriculos/{{ item.id }}/imprimir">{{ icon('print') }}</a>
+        </div>
+        {% endfor %}
+        <form method="post" action="/curriculos">
+          <input type="hidden" name="job_id" value="{{ job.id }}">
+          <button class="btn {{ 'btn-primary' if not resumes }}" style="width:100%; justify-content:center">
+            {{ icon('curriculos') }} Gerar currículo direcionado
+          </button>
+        </form>
+        <p class="small faint" style="margin-top:8px">Monta a partir do seu perfil, colocando na frente o que esta vaga pede. Nada é inventado.</p>
+        <form method="post" action="/curriculos/arquivo" enctype="multipart/form-data" style="margin-top:10px">
+          <input type="hidden" name="job_id" value="{{ job.id }}">
+          <div class="field" style="margin:0">
+            <label for="pdf-vaga">Ou anexe um PDF que você já tem</label>
+            <input type="file" id="pdf-vaga" name="arquivo" accept="application/pdf,.pdf" required>
+          </div>
+          <button class="btn btn-sm" style="margin-top:8px">{{ icon('plus', 13) }} Enviar PDF</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Roadmap · Farol{% endblock %}
+{% block heading %}Roadmap{% endblock %}
+{% block subheading %}Calculado sobre as {{ total_jobs }} vagas que as suas buscas trouxeram — não é lista genérica de internet{% endblock %}
+
+{% block content %}
+
+{% if not total_jobs %}
+<div class="card"><div class="empty">
+  <b>Sem dados ainda</b>
+  Colete vagas em <a href="/vagas">Vagas</a>. O roadmap sai da frequência real de cada tecnologia nas suas buscas.
+</div></div>
+{% endif %}
+
+<div class="grid c2">
+  <div class="card">
+    <div class="card-head"><b>Lacunas</b><span class="faint small">pedido nas vagas, ausente no seu perfil</span></div>
+    <div class="card-body">
+      {% for gap in gaps[:12] %}
+      <div class="gap-row">
+        <span class="name">{{ gap.skill | skill }}</span>
+        <span class="meter"><i style="width: {{ (gap.count / max_gap * 100) | round | int }}%"></i></span>
+        <span class="n">{{ gap.share }}%</span>
+        <form method="post" action="/roadmap/itens">
+          <input type="hidden" name="kind" value="skill">
+          <input type="hidden" name="ref" value="{{ gap.skill }}">
+          <input type="hidden" name="title" value="Estudar {{ gap.skill | skill }}">
+          <input type="hidden" name="status" value="planejado">
+          <button class="btn btn-sm btn-quiet" title="Adicionar ao plano">{{ icon('plus', 13) }}</button>
+        </form>
+      </div>
+      {% else %}
+      <p class="faint small">Nada a mostrar ainda.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><b>Seus pontos fortes</b><span class="faint small">o que destacar no topo do currículo</span></div>
+    <div class="card-body">
+      {% for item in strengths %}
+      <div class="gap-row">
+        <span class="name">{{ item.skill | skill }}</span>
+        <span class="meter"><i style="width: {{ (item.count / max_gap * 100) | round | int if max_gap else 0 }}%; background: var(--good)"></i></span>
+        <span class="n">{{ item.count }} vagas</span>
+      </div>
+      {% else %}
+      <p class="faint small">Cadastre suas competências no <a href="/perfil">perfil</a>.</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="section-title">
+  <h2>Projetos recomendados</h2>
+  <span class="note">priorizados pelas lacunas acima e pela sua área ({{ areas.get(profile.area, '—') }})</span>
+</div>
+<div class="grid c2">
+  {% for item in projects %}
+  <div class="card rec">
+    <div class="row" style="justify-content:space-between; align-items:flex-start">
+      <h3>{{ item.title }}</h3>
+      <span class="chip {{ 'accent' if item.in_area }}">{{ item.effort }}</span>
+    </div>
+    <p class="pitch">{{ item.pitch }}</p>
+    <div class="tags">
+      {% for skill in item.skills %}
+      <span class="chip {{ 'warn' if skill in item.covers }}">{{ skill | skill }}</span>
+      {% endfor %}
+    </div>
+    <ol>{% for step in item.steps %}<li>{{ step }}</li>{% endfor %}</ol>
+    <div class="signal">{{ item.signal }}</div>
+    <div class="row" style="margin-top:10px">
+      <form method="post" action="/roadmap/itens">
+        <input type="hidden" name="kind" value="projeto">
+        <input type="hidden" name="ref" value="{{ item.id }}">
+        <input type="hidden" name="title" value="{{ item.title }}">
+        <input type="hidden" name="status" value="{{ 'concluido' if item.tracked and item.tracked.status == 'fazendo' else 'fazendo' }}">
+        <button class="btn btn-sm {{ 'btn-primary' if not item.tracked }}">
+          {% if not item.tracked %}Começar{% elif item.tracked.status == 'fazendo' %}Marcar como concluído{% else %}Refazer{% endif %}
+        </button>
+      </form>
+      {% if item.tracked %}
+      <span class="chip {{ 'on' if item.tracked.status == 'concluido' else 'accent' }}">{{ item.tracked.status }}</span>
+      <form method="post" action="/roadmap/itens">
+        <input type="hidden" name="kind" value="projeto">
+        <input type="hidden" name="ref" value="{{ item.id }}">
+        <input type="hidden" name="status" value="remover">
+        <button class="btn btn-sm btn-quiet">{{ icon('x', 13) }}</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="section-title">
+  <h2>Certificações</h2>
+  <span class="note">valores aproximados e sujeitos a mudança — confira no site do emissor</span>
+</div>
+<div class="card">
+  <div class="card-body tight">
+    <table class="data">
+      <thead>
+        <tr><th>Certificação</th><th>Por que</th><th>Custo</th><th>Tempo</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for item in certifications %}
+        <tr>
+          <td style="min-width:210px">
+            <a href="{{ item.url }}" target="_blank" rel="noreferrer"><b>{{ item.title }}</b></a>
+            <div class="faint small">{{ item.provider }}</div>
+            {% if item.covers %}
+            <div class="tags" style="margin-top:5px">
+              {% for skill in item.covers[:4] %}<span class="chip warn">{{ skill | skill }}</span>{% endfor %}
+            </div>
+            {% endif %}
+          </td>
+          <td class="muted">{{ item.why }}</td>
+          <td class="nowrap">{{ item.cost }}</td>
+          <td class="nowrap muted">{{ item.effort }}</td>
+          <td class="nowrap" style="text-align:right">
+            <form method="post" action="/roadmap/itens">
+              <input type="hidden" name="kind" value="certificacao">
+              <input type="hidden" name="ref" value="{{ item.id }}">
+              <input type="hidden" name="title" value="{{ item.title }}">
+              <input type="hidden" name="url" value="{{ item.url }}">
+              <input type="hidden" name="status" value="{{ 'remover' if item.tracked else 'planejado' }}">
+              <button class="btn btn-sm">{{ 'No plano' if item.tracked else 'Adicionar' }}</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="section-title"><h2>Seu plano</h2><span class="note">o que você marcou para fazer</span></div>
+<div class="grid c3">
+  {% for status, label in [('planejado', 'Planejado'), ('fazendo', 'Fazendo'), ('concluido', 'Concluído')] %}
+  <div class="card">
+    <div class="card-head"><b>{{ label }}</b><span class="count faint small">{{ board[status] | length }}</span></div>
+    <div class="card-body">
+      {% for item in board[status] %}
+      <div class="row" style="justify-content:space-between; margin-bottom:7px">
+        <span style="font-size:13px">
+          {% if item.url %}<a href="{{ item.url }}" target="_blank" rel="noreferrer">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}
+          <span class="faint small">{{ item.kind }}</span>
+        </span>
+        <span class="row" style="gap:4px">
+          {% if status != 'concluido' %}
+          <form method="post" action="/roadmap/itens">
+            <input type="hidden" name="kind" value="{{ item.kind }}">
+            <input type="hidden" name="ref" value="{{ item.ref }}">
+            <input type="hidden" name="title" value="{{ item.title }}">
+            <input type="hidden" name="url" value="{{ item.url }}">
+            <input type="hidden" name="status" value="{{ 'fazendo' if status == 'planejado' else 'concluido' }}">
+            <button class="btn btn-sm btn-quiet" title="Avançar">{{ icon('check', 13) }}</button>
+          </form>
+          {% endif %}
+          <form method="post" action="/roadmap/itens">
+            <input type="hidden" name="kind" value="{{ item.kind }}">
+            <input type="hidden" name="ref" value="{{ item.ref }}">
+            <input type="hidden" name="status" value="remover">
+            <button class="btn btn-sm btn-quiet" title="Remover">{{ icon('x', 13) }}</button>
+          </form>
+        </span>
+      </div>
+      {% else %}
+      <p class="faint small">Vazio.</p>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

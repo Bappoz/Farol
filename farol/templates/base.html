@@ -1,0 +1,63 @@
+{% from "_icons.html" import icon %}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Farol{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+</head>
+<body>
+<div class="shell">
+  <nav class="sidebar">
+    <div class="brand">
+      {{ icon('farol', 22) }}
+      <div>
+        <b>Farol</b>
+        <span>central de carreira</span>
+      </div>
+    </div>
+
+    <div class="menu">
+      <a href="/" class="{{ 'on' if nav == 'painel' }}">{{ icon('painel') }} Painel</a>
+      <a href="/vagas" class="{{ 'on' if nav == 'vagas' }}">{{ icon('vagas') }} Vagas</a>
+      <a href="/pipeline" class="{{ 'on' if nav == 'pipeline' }}">{{ icon('pipeline') }} Pipeline</a>
+      <a href="/curriculos" class="{{ 'on' if nav == 'curriculos' }}">{{ icon('curriculos') }} Currículos</a>
+      <a href="/roadmap" class="{{ 'on' if nav == 'roadmap' }}">{{ icon('roadmap') }} Roadmap</a>
+      <a href="/perfil" class="{{ 'on' if nav == 'perfil' }}">{{ icon('perfil') }} Perfil</a>
+      <a href="/ajustes" class="{{ 'on' if nav == 'ajustes' }}">{{ icon('ajustes') }} Ajustes</a>
+    </div>
+
+    <div class="side-foot">
+      <button class="btn btn-quiet btn-sm" data-theme-toggle type="button">{{ icon('tema') }} Tema</button>
+      {% if profile.name %}
+        <div class="hint">{{ profile.name }}<br>{{ seniorities.get(profile.seniority, '') }} · {{ areas.get(profile.area, '') }}</div>
+      {% else %}
+        <div class="hint">Comece pelo <a href="/perfil">Perfil</a>: ele alimenta o fit score, o currículo e o roadmap.</div>
+      {% endif %}
+    </div>
+  </nav>
+
+  <main class="main" {% if nav in ('painel', 'vagas') %}data-reload-on-collect{% endif %}>
+    <header class="topbar">
+      <div class="grow">
+        <h1>{% block heading %}{% endblock %}</h1>
+        <div class="sub">{% block subheading %}{% endblock %}</div>
+      </div>
+      <span class="collect" data-collect {% if not collect_state.running %}hidden{% endif %}>
+        <i class="spin"></i> coletando vagas nos portais…
+      </span>
+      {% block actions %}{% endblock %}
+    </header>
+
+    {% if msg %}<div class="flash {{ 'warn' if tone == 'warn' }}">{{ msg }}</div>{% endif %}
+
+    <div class="content">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</div>
+<script src="/static/app.js" defer></script>
+</body>
+</html>

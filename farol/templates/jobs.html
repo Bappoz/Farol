@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Vagas · Farol{% endblock %}
+{% block heading %}Vagas{% endblock %}
+{% block subheading %}{{ jobs | length }} de {{ total }} vagas na base{% endblock %}
+
+{% block actions %}
+<form method="post" action="/vagas/atualizar">
+  <input type="hidden" name="back" value="/vagas">
+  <button class="btn btn-primary">{{ icon('refresh') }} Atualizar vagas</button>
+</form>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <form class="filters" method="get" action="/vagas">
+    <div class="field grow">
+      <label for="q">Buscar na base</label>
+      <input type="search" id="q" name="q" value="{{ filters.q }}" placeholder="cargo, empresa ou termo da descrição">
+    </div>
+    <div class="field">
+      <label for="fonte">Fonte</label>
+      <select id="fonte" name="fonte" data-autosubmit>
+        <option value="">todas</option>
+        {% for source in sources %}
+        <option value="{{ source.id }}" {{ 'selected' if filters.fonte == source.id }}>{{ source.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="min">Fit mínimo</label>
+      <input type="number" id="min" name="min" min="0" max="100" step="5" value="{{ filters.min }}" style="width:90px">
+    </div>
+    <div class="field">
+      <label for="local">Localização</label>
+      <input type="text" id="local" name="local" value="{{ filters.local }}" placeholder="brasil, worldwide, latam...">
+    </div>
+    <div class="field">
+      <label for="modo">Modelo</label>
+      <select id="modo" name="modo" data-autosubmit>
+        <option value="" {{ 'selected' if filters.modo == '' }}>todos</option>
+        {% for value, label in work_mode_labels.items() %}
+        <option value="{{ value }}" {{ 'selected' if filters.modo == value }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="salario">Salário mín. (US$/ano)</label>
+      <input type="number" id="salario" name="salario" min="0" step="1000" value="{{ filters.salario or '' }}" style="width:120px" placeholder="40000">
+    </div>
+    <div class="field">
+      <label for="estado">Estado</label>
+      <select id="estado" name="estado" data-autosubmit>
+        <option value="novo" {{ 'selected' if filters.estado == 'novo' }}>ativas</option>
+        <option value="descartada" {{ 'selected' if filters.estado == 'descartada' }}>descartadas</option>
+        <option value="todas" {{ 'selected' if filters.estado == 'todas' }}>todas</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="ordem">Ordenar</label>
+      <select id="ordem" name="ordem" data-autosubmit>
+        <option value="score" {{ 'selected' if filters.ordem == 'score' }}>fit</option>
+        <option value="recente" {{ 'selected' if filters.ordem == 'recente' }}>mais recentes</option>
+        <option value="empresa" {{ 'selected' if filters.ordem == 'empresa' }}>empresa</option>
+      </select>
+    </div>
+    <button class="btn">Filtrar</button>
+  </form>
+
+  <div class="card-body tight divide">
+    {% for job in jobs %}
+    <div class="job">
+      <a class="score s-{{ job.label | replace('possível','possivel') }}" href="/vagas/{{ job.id }}"
+         style="text-decoration:none" title="{{ job.label }}">
+        <b>{{ job.score }}</b>
+        <span class="bar"><i style="width: {{ job.score }}%"></i></span>
+      </a>
+      <div class="body">
+        <a href="/vagas/{{ job.id }}" style="text-decoration:none">
+          <div class="title">{{ job.title }}</div>
+          <div class="meta">
+            {{ job.company or 'empresa não informada' }}
+            · {{ work_mode_labels.get(job.work_mode, job.work_mode) }}
+            {% if job.location %} · {{ job.location }}{% endif %}
+            {% if job.salary %} · {{ job.salary }}{% endif %}
+            {% if job.age is not none %} · há {{ job.age }}d{% endif %}
+            · <span class="mono">{{ job.source }}</span>
+          </div>
+        </a>
+        <div class="why tags">
+          {% for skill in job.score_data.matched[:7] %}<span class="chip on">{{ skill | skill }}</span>{% endfor %}
+          {% for skill in job.score_data.missing[:4] %}<span class="chip">{{ skill | skill }}</span>{% endfor %}
+          {% for flag in job.score_data.flags %}<span class="chip warn">{{ flag }}</span>{% endfor %}
+        </div>
+      </div>
+      <div class="actions">
+        {% if job.application_id %}
+        <a class="btn btn-sm" href="/candidaturas/{{ job.application_id }}">no pipeline</a>
+        {% else %}
+        <form method="post" action="/vagas/{{ job.id }}/salvar">
+          <button class="btn btn-sm btn-primary">Salvar</button>
+        </form>
+        {% endif %}
+        <form method="post" action="/vagas/{{ job.id }}/estado">
+          <input type="hidden" name="state" value="{{ 'novo' if job.state == 'descartada' else 'descartada' }}">
+          <input type="hidden" name="back" value="/vagas?{{ back_qs }}">
+          <button class="btn btn-sm btn-quiet" title="{{ 'Restaurar' if job.state == 'descartada' else 'Descartar' }}">
+            {{ icon('refresh') if job.state == 'descartada' else icon('x') }}
+          </button>
+        </form>
+      </div>
+    </div>
+    {% else %}
+    <div class="empty">
+      <b>Nada por aqui</b>
+      {% if total %}Afrouxe o fit mínimo ou limpe a busca.{% else %}Clique em “Atualizar vagas”. Configure os termos em Ajustes.{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

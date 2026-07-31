@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% set data = resume.data %}
+{% set lang = resume.lang %}
+{% block title %}{{ resume.name }} · Farol{% endblock %}
+{% block heading %}{{ resume.name }}{% endblock %}
+{% block subheading %}
+  {% if job %}Direcionado a {{ job.title }} · {{ job.company }}{% else %}Currículo base{% endif %}
+  · {{ 'em inglês' if lang == 'en' else 'em português' }}
+  · atualizado em {{ resume.updated_at[:16].replace('T', ' ') }}
+{% endblock %}
+
+{% block actions %}
+<div class="row">
+  <a class="btn" href="/curriculos/{{ resume.id }}/imprimir" target="_blank">{{ icon('print') }} Ver / gerar PDF</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<form method="post" action="/curriculos/{{ resume.id }}">
+<div class="grid side">
+  <div>
+    <div class="card">
+      <div class="card-head"><b>Cabeçalho e resumo</b></div>
+      <div class="card-body">
+        <div class="grid c3">
+          <div class="field">
+            <label for="name">Nome do arquivo (só para você)</label>
+            <input type="text" id="name" name="name" value="{{ resume.name }}">
+          </div>
+          <div class="field">
+            <label for="headline">Cargo pretendido</label>
+            <input type="text" id="headline" name="headline" value="{{ data.headline }}">
+          </div>
+          <div class="field">
+            <label for="lang">Idioma do currículo</label>
+            <select id="lang" name="lang">
+              {% for code, label in langs.items() %}
+              <option value="{{ code }}" {{ 'selected' if lang == code }}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="field" style="margin:0">
+          <label for="summary">Resumo</label>
+          <textarea id="summary" name="summary" rows="4">{{ data.summary }}</textarea>
+          <div class="help">
+            {% if lang == 'en' %}
+              O idioma muda os títulos das seções e o nome das competências. O texto é você quem escreve —
+              traduza aqui; fica guardado só neste currículo, o Perfil continua em português.
+            {% else %}
+              Duas a quatro linhas. Diga o que você faz, com o quê e o que procura — sem adjetivo solto.
+            {% endif %}
+          </div>
+        </div>
+        {% if ai_ready %}
+        <div class="row end" style="margin-top:8px">
+          <button class="btn btn-sm" formaction="/curriculos/{{ resume.id }}/ia" name="acao" value="resumo">
+            {{ icon('star') }} Revisar resumo com IA{{ ' (em inglês)' if lang == 'en' }}
+          </button>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <b>Competências</b>
+        <span class="faint small">desmarque o que não entra neste currículo</span>
+      </div>
+      <div class="card-body">
+        {% set chosen = data.skills or [] %}
+        {% set todas = chosen + (profile.skills | reject('in', chosen) | list) %}
+        {% if todas %}
+        <div class="grid c3">
+          {% for skill in todas %}
+          <div class="check">
+            <input type="checkbox" id="sk-{{ loop.index }}" name="skills" value="{{ skill }}"
+                   {{ 'checked' if skill in chosen }}>
+            <label for="sk-{{ loop.index }}">
+              {{ skill | skill(lang) }}
+              {% if skill in (data.highlight_skills or []) %}<span class="chip on" style="font-size:10px">na vaga</span>{% endif %}
+            </label>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="faint small">Nenhuma competência no perfil. <a href="/perfil">Preencha o perfil</a>.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><b>Experiência</b><span class="faint small">o texto daqui não volta para o Perfil</span></div>
+      <div class="card-body">
+        {% for item in data.experience %}
+        <div class="repeat-item">
+          <div class="row-head">
+            <div class="check" style="margin:0">
+              <input type="checkbox" id="exi-{{ loop.index0 }}" name="exp_incluir" value="{{ loop.index0 }}" checked>
+              <label for="exi-{{ loop.index0 }}">incluir</label>
+            </div>
+          </div>
+          <input type="hidden" name="exp_indice" value="{{ loop.index0 }}">
+          <div class="grid c3">
+            <div class="field"><label>Cargo</label>
+              <input type="text" name="exp_role_{{ loop.index0 }}" value="{{ item.role }}"></div>
+            <div class="field"><label>Organização</label>
+              <input type="text" name="exp_org_{{ loop.index0 }}" value="{{ item.org }}"></div>
+            <div class="field"><label>Período</label>
+              <input type="text" name="exp_period_{{ loop.index0 }}" value="{{ item.period }}"></div>
+          </div>
+          <div class="field" style="margin:0">
+            <label>Entregas (uma por linha)</label>
+            <textarea name="exp_bullets_{{ loop.index0 }}" rows="3">{{ item.bullets | join('\n') }}</textarea>
+          </div>
+        </div>
+        {% else %}
+        <p class="faint small">Sem experiência neste currículo. Ela vem do Perfil quando você usa “remontar”.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><b>Projetos</b><span class="faint small">ordenados pelo que a vaga pede</span></div>
+      <div class="card-body">
+        {% for item in data.projects %}
+        <div class="repeat-item">
+          <div class="row-head">
+            <div class="check" style="margin:0">
+              <input type="checkbox" id="pri-{{ loop.index0 }}" name="proj_incluir" value="{{ loop.index0 }}" checked>
+              <label for="pri-{{ loop.index0 }}">incluir</label>
+            </div>
+          </div>
+          <input type="hidden" name="proj_indice" value="{{ loop.index0 }}">
+          <div class="grid c3">
+            <div class="field"><label>Nome</label>
+              <input type="text" name="proj_name_{{ loop.index0 }}" value="{{ item.name }}"></div>
+            <div class="field"><label>Link</label>
+              <input type="text" name="proj_url_{{ loop.index0 }}" value="{{ item.url }}"></div>
+            <div class="field"><label>Stack</label>
+              <input type="text" name="proj_stack_{{ loop.index0 }}" value="{{ item.stack }}"></div>
+          </div>
+          <div class="field" style="margin:0">
+            <label>O que ele faz e o que você resolveu (uma linha por marcador)</label>
+            <textarea name="proj_bullets_{{ loop.index0 }}" rows="3">{{ item.bullets | join('\n') }}</textarea>
+          </div>
+        </div>
+        {% else %}
+        <p class="faint small">Sem projetos. Veja o <a href="/roadmap">roadmap</a> para escolher o que construir.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><b>Formação</b></div>
+      <div class="card-body">
+        {% for item in data.education %}
+        <div class="repeat-item">
+          <div class="row-head">
+            <div class="check" style="margin:0">
+              <input type="checkbox" id="edi-{{ loop.index0 }}" name="edu_incluir" value="{{ loop.index0 }}" checked>
+              <label for="edi-{{ loop.index0 }}">incluir</label>
+            </div>
+          </div>
+          <input type="hidden" name="edu_indice" value="{{ loop.index0 }}">
+          <div class="grid c3">
+            <div class="field"><label>Curso</label>
+              <input type="text" name="edu_course_{{ loop.index0 }}" value="{{ item.course }}"></div>
+            <div class="field"><label>Instituição</label>
+              <input type="text" name="edu_school_{{ loop.index0 }}" value="{{ item.school }}"></div>
+            <div class="field"><label>Período</label>
+              <input type="text" name="edu_period_{{ loop.index0 }}" value="{{ item.period }}"></div>
+          </div>
+          <div class="field" style="margin:0"><label>Observação</label>
+            <input type="text" name="edu_note_{{ loop.index0 }}" value="{{ item.note }}"></div>
+        </div>
+        {% else %}
+        <p class="faint small">Sem formação cadastrada.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><b>Idiomas</b></div>
+      <div class="card-body">
+        {% for item in data.languages %}
+        <div class="repeat-item">
+          <div class="row-head">
+            <div class="check" style="margin:0">
+              <input type="checkbox" id="idi-{{ loop.index0 }}" name="idi_incluir" value="{{ loop.index0 }}" checked>
+              <label for="idi-{{ loop.index0 }}">incluir</label>
+            </div>
+          </div>
+          <input type="hidden" name="idi_indice" value="{{ loop.index0 }}">
+          <div class="grid c2">
+            <div class="field" style="margin:0"><label>Idioma</label>
+              <input type="text" name="idi_name_{{ loop.index0 }}" value="{{ item.name }}"></div>
+            <div class="field" style="margin:0"><label>Nível</label>
+              <input type="text" name="idi_level_{{ loop.index0 }}" value="{{ item.level }}"></div>
+          </div>
+        </div>
+        {% else %}
+        <p class="faint small">Nenhum idioma cadastrado no Perfil.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <b>Carta de apresentação</b>
+        <div class="grow"></div>
+        {% if ai_ready %}
+        <button class="btn btn-sm" formaction="/curriculos/{{ resume.id }}/ia" name="acao" value="carta">
+          {{ icon('star') }} Revisar com IA
+        </button>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <textarea name="letter" rows="14" style="font-size:13px">{{ resume.letter }}</textarea>
+        <div class="help">Os trechos [preencher] são de propósito: só você sabe o que dizer ali. Carta genérica é pior que carta nenhuma.</div>
+      </div>
+    </div>
+
+    {% if data.ai_bullets %}
+    <div class="card">
+      <div class="card-head"><b>Sugestões de marcadores (IA)</b><span class="faint small">copie o que fizer sentido para os campos acima</span></div>
+      <div class="card-body"><div class="desc">{{ data.ai_bullets }}</div></div>
+    </div>
+    {% endif %}
+
+    <div class="row end" style="margin-top:14px">
+      <a class="btn" href="/curriculos">Voltar</a>
+      <button class="btn btn-primary">{{ icon('save') }} Salvar currículo</button>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-head"><b>Checagem antes de enviar</b></div>
+      <div class="card-body">
+        <ul class="checklist">
+          {% for item in checklist %}
+          <li class="{{ 'ok' if item.ok else 'no' }}">
+            <span class="mark">{{ icon('check', 15) if item.ok else icon('alert', 15) }}</span>
+            <span>
+              {{ item.label }}
+              {% if item.hint and not item.ok %}<span class="hint">{{ item.hint }}</span>{% endif %}
+            </span>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+
+    {% if data.missing_skills %}
+    <div class="card">
+      <div class="card-head"><b>A vaga pede e você não tem</b></div>
+      <div class="card-body">
+        <div class="tags">
+          {% for skill in data.missing_skills %}<span class="chip">{{ skill | skill(lang) }}</span>{% endfor %}
+        </div>
+        <p class="small faint" style="margin-top:10px">
+          Não coloque isso no currículo para passar em filtro. Se for recorrente nas suas buscas, vire projeto no
+          <a href="/roadmap">roadmap</a>.
+        </p>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-head"><b>Perfil</b></div>
+      <div class="card-body">
+        <p class="small faint" style="margin-bottom:10px">
+          Este currículo é um documento próprio: o Perfil serviu de ponto de partida e o que você editar aqui
+          fica só aqui. Se mudou algo no Perfil e quer trazer para cá, remonte — isso descarta as edições
+          desta página, inclusive traduções.
+        </p>
+        <button class="btn btn-sm" formaction="/curriculos/{{ resume.id }}/reconstruir"
+                data-confirm="Remontar a partir do Perfil? As edições feitas neste currículo (inclusive traduções) serão perdidas.">
+          {{ icon('refresh') }} Remontar a partir do perfil
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+</form>
+{% endblock %}

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import subprocess
 import threading
 import time
 from datetime import datetime, timedelta, timezone
@@ -78,10 +79,50 @@ def _upsert(conn, item: dict[str, Any], profile: dict, settings: dict) -> str:
     return verdict
 
 
+def highlights(since: str, min_score: int, limit: int = 5) -> list[dict[str, Any]]:
+    """Vagas vistas pela primeira vez a partir de `since` com fit >= min_score."""
+    return [
+        dict(r)
+        for r in db.query(
+            """SELECT title, company, score FROM jobs
+               WHERE first_seen_at >= ? AND score >= ? AND state = 'novo'
+               ORDER BY score DESC LIMIT ?""",
+            (since, min_score, limit),
+        )
+    ]
+
+
+def notify(jobs: list[dict[str, Any]]) -> bool:
+    """Avisa pelo notificador do desktop. Devolve se a notificação saiu.
+
+    Sem `notify-send` instalado (ou fora de uma sessão gráfica) o app segue igual:
+    a coleta não pode falhar por causa de um aviso.
+    """
+    if not jobs:
+        return False
+    top = jobs[0]
+    corpo = "\n".join(f"{j['score']} · {j['title']} — {j['company'] or 'empresa não informada'}" for j in jobs)
+    titulo = (
+        f"Farol: {len(jobs)} vaga nova com bom fit" if len(jobs) == 1
+        else f"Farol: {len(jobs)} vagas novas com bom fit"
+    )
+    try:
+        subprocess.run(
+            ["notify-send", "--app-name=Farol", "--icon=farol",
+             f"--urgency={'normal' if top['score'] < 85 else 'critical'}", titulo, corpo],
+            check=False,
+            timeout=5,
+        )
+    except (FileNotFoundError, OSError, subprocess.SubprocessError):
+        return False
+    return True
+
+
 def run(source_ids: list[str] | None = None) -> dict[str, Any]:
     """Atualiza a base de vagas. Devolve um relatório por fonte."""
     profile = db.get_profile()
     settings = db.get_settings()
+    started = _utcnow().isoformat(sep=" ", timespec="seconds")
     searches = [
         row["keywords"].strip()
         for row in db.query("SELECT keywords FROM searches WHERE enabled = 1")
@@ -129,7 +170,16 @@ def run(source_ids: list[str] | None = None) -> dict[str, Any]:
                     "error": error,
                 }
             )
-    return {"sources": report, "new": total_new}
+
+    destaques: list[dict[str, Any]] = []
+    if total_new and settings.get("notify_new_jobs") == "1":
+        try:
+            limite = int(settings.get("notify_min_score") or 70)
+        except ValueError:
+            limite = 70
+        destaques = highlights(started, limite)
+        notify(destaques)
+    return {"sources": report, "new": total_new, "highlights": destaques}
 
 
 # ------------------------------------------------------- coleta em segundo plano

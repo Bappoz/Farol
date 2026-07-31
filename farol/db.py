@@ -36,6 +36,9 @@ DEFAULT_SETTINGS = {
     # dentro dela não dispara requisição nenhuma nos portais
     "refresh_cooldown_min": "45",
     "theme": "auto",
+    # aviso do desktop quando a coleta traz vaga nova com fit alto (precisa de notify-send)
+    "notify_new_jobs": "",
+    "notify_min_score": "70",
     "anthropic_api_key": "",
     "anthropic_model": "claude-sonnet-5",
     "exclude_keywords": "senior, sênior, staff, principal, lead, tech lead, head of",

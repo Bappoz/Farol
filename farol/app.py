@@ -906,9 +906,12 @@ async def settings_save(request: Request) -> RedirectResponse:
     form = await request.form()
     for key in ("weekly_goal", "min_score", "region_preference", "keywords",
                 "exclude_keywords", "anthropic_api_key", "anthropic_model", "theme",
-                "refresh_cooldown_min"):
+                "refresh_cooldown_min", "notify_min_score"):
         if key in form:
             db.set_setting(key, str(form.get(key) or ""))
+    # checkbox não é enviado quando desmarcado: só grava se o bloco veio no formulário
+    if "notify_min_score" in form:
+        db.set_setting("notify_new_jobs", "1" if form.get("notify_new_jobs") else "")
     collect.rescore()
     return go("/ajustes", "Ajustes salvos e vagas repontuadas.")
 

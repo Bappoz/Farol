@@ -155,6 +155,22 @@
               “Atualizar vagas” ignora o intervalo.
             </div>
           </div>
+          <div class="field">
+            <label class="row" style="gap:8px; cursor:pointer">
+              <input type="checkbox" name="notify_new_jobs" value="1"
+                     {{ 'checked' if settings.notify_new_jobs == '1' }} style="width:auto">
+              <span>Avisar no desktop quando entrar vaga nova com bom fit</span>
+            </label>
+            <div class="row" style="gap:8px; margin-top:8px; align-items:center">
+              <span class="small faint">a partir do fit</span>
+              <input type="number" name="notify_min_score" min="0" max="100" step="5"
+                     value="{{ settings.notify_min_score }}" style="width:80px">
+            </div>
+            <div class="help">
+              Usa o <span class="mono">notify-send</span> da sua sessão. Sem ele instalado o aviso
+              é ignorado em silêncio — a coleta funciona igual.
+            </div>
+          </div>
           <div class="row end"><button class="btn btn-primary">{{ icon('save') }} Salvar</button></div>
         </div>
       </div>

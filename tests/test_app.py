@@ -45,9 +45,8 @@ def perfil():
     return db.get_profile()
 
 
-@pytest.fixture
-def com_vagas(fixtures, monkeypatch, perfil):
-    """Popula a base usando as respostas gravadas em tests/fixtures."""
+def _fontes_gravadas(fixtures, monkeypatch) -> None:
+    """Faz as fontes responderem com as amostras de tests/fixtures, sem rede."""
     mapping = {
         "remotive.com": "remotive.json",
         "remoteok.com": "remoteok.json",
@@ -66,6 +65,12 @@ def com_vagas(fixtures, monkeypatch, perfil):
         sources, "client", lambda timeout=25.0: httpx.Client(transport=httpx.MockTransport(handler))
     )
     db.execute("UPDATE searches SET keywords = 'junior'")
+
+
+@pytest.fixture
+def com_vagas(fixtures, monkeypatch, perfil):
+    """Popula a base usando as respostas gravadas em tests/fixtures."""
+    _fontes_gravadas(fixtures, monkeypatch)
     return collect.run()
 
 
@@ -195,6 +200,55 @@ def test_pagina_acima_do_total_cai_na_ultima(client, com_vagas):
     resposta = client.get("/vagas?estado=todas&min=0&pagina=999")
     assert resposta.status_code == 200
     assert "Nada por aqui" not in resposta.text
+
+
+def test_notificacao_sai_para_vaga_nova_com_fit_alto(fixtures, monkeypatch, perfil):
+    chamadas = []
+    monkeypatch.setattr(collect.subprocess, "run", lambda cmd, **kw: chamadas.append(cmd))
+    db.set_setting("notify_new_jobs", "1")
+    db.set_setting("notify_min_score", "40")
+    _fontes_gravadas(fixtures, monkeypatch)
+
+    report = collect.run()
+
+    assert report["highlights"], "as vagas de teste têm fit acima de 40"
+    assert len(chamadas) == 1
+    assert chamadas[0][0] == "notify-send"
+    assert "Farol" in " ".join(chamadas[0])
+
+
+def test_notificacao_desligada_por_padrao(fixtures, monkeypatch, perfil):
+    chamadas = []
+    monkeypatch.setattr(collect.subprocess, "run", lambda cmd, **kw: chamadas.append(cmd))
+    _fontes_gravadas(fixtures, monkeypatch)
+
+    report = collect.run()
+
+    assert report["new"] >= 5
+    assert chamadas == []
+    assert report["highlights"] == []
+
+
+def test_notificacao_nao_derruba_coleta_sem_notify_send(monkeypatch):
+    def sem_binario(cmd, **kw):
+        raise FileNotFoundError("notify-send")
+
+    monkeypatch.setattr(collect.subprocess, "run", sem_binario)
+    assert collect.notify([{"title": "Dev", "company": "X", "score": 90}]) is False
+
+
+def test_notificacao_ignora_fit_abaixo_do_limite(fixtures, monkeypatch, perfil):
+    chamadas = []
+    monkeypatch.setattr(collect.subprocess, "run", lambda cmd, **kw: chamadas.append(cmd))
+    db.set_setting("notify_new_jobs", "1")
+    db.set_setting("notify_min_score", "99")
+    _fontes_gravadas(fixtures, monkeypatch)
+
+    report = collect.run()
+
+    assert report["new"] >= 5
+    assert report["highlights"] == []
+    assert chamadas == []
 
 
 def test_fonte_quebrada_vira_diagnostico(monkeypatch, perfil):

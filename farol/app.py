@@ -19,6 +19,9 @@ from . import ai, collect, db, pdfs, resume as resume_mod, roadmap, scoring, ski
 
 PKG_DIR = Path(__file__).resolve().parent
 
+# vagas por página em /vagas — a lista antes cortava em 200 sem dizer que havia mais
+PAGE_SIZE = 50
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     db.bootstrap()
@@ -52,6 +55,8 @@ def render(request: Request, template: str, **context: Any) -> HTMLResponse:
         "areas": skills.AREAS,
         "seniorities": skills.SENIORITIES,
         "work_mode_labels": scoring.WORK_MODE_LABELS,
+        "region_labels": scoring.REGION_LABELS,
+        "currency_labels": scoring.SALARY_CURRENCY_LABELS,
         "msg": request.query_params.get("msg", ""),
         "tone": request.query_params.get("tone", "ok"),
         "nav": context.pop("nav", ""),
@@ -169,6 +174,10 @@ def jobs_list(request: Request) -> HTMLResponse:
     order = params.get("ordem") or "score"
     local = (params.get("local") or "").strip()
     modo = params.get("modo") or ""
+    regiao = params.get("regiao") or ""
+    moeda = params.get("moeda") or "USD"
+    if moeda not in scoring.SALARY_CURRENCIES:
+        moeda = "USD"
     try:
         min_score = int(params.get("min") or settings.get("min_score") or 0)
     except ValueError:
@@ -177,6 +186,10 @@ def jobs_list(request: Request) -> HTMLResponse:
         salario = int(params.get("salario") or 0)
     except ValueError:
         salario = 0
+    try:
+        pagina = max(1, int(params.get("pagina") or 1))
+    except ValueError:
+        pagina = 1
 
     where = ["score >= ?"]
     args: list[Any] = [min_score]
@@ -195,13 +208,17 @@ def jobs_list(request: Request) -> HTMLResponse:
         # comparação exata com um valor que já existe na base — o select não deixa digitar errado
         where.append("location = ?")
         args.append(local)
+    if regiao in scoring.REGIONS:
+        where.append("region = ?")
+        args.append(regiao)
     if modo in scoring.WORK_MODES:
         where.append("work_mode = ?")
         args.append(modo)
     if salario:
-        # compara com o topo da faixa informada: a vaga pode pagar até ali
-        where.append("salary_max >= ?")
-        args.append(salario)
+        # compara com o topo da faixa: a vaga pode pagar até ali. Só entre vagas da
+        # mesma moeda — o app não converte câmbio, então comparar EUR com USD mentiria.
+        where.append("salary_max >= ? AND salary_currency = ?")
+        args += [salario, moeda]
 
     order_sql = {
         "score": "score DESC, last_seen_at DESC",
@@ -209,8 +226,13 @@ def jobs_list(request: Request) -> HTMLResponse:
         "empresa": "company COLLATE NOCASE, title COLLATE NOCASE",
     }.get(order, "score DESC")
 
+    clause = " AND ".join(where)
+    found = db.one(f"SELECT COUNT(*) AS n FROM jobs WHERE {clause}", args)["n"]
+    pages = max(1, -(-found // PAGE_SIZE))  # divisão para cima
+    pagina = min(pagina, pages)
     rows = db.query(
-        f"SELECT * FROM jobs WHERE {' AND '.join(where)} ORDER BY {order_sql} LIMIT 200", args
+        f"SELECT * FROM jobs WHERE {clause} ORDER BY {order_sql} LIMIT ? OFFSET ?",
+        args + [PAGE_SIZE, (pagina - 1) * PAGE_SIZE],
     )
     jobs = [job_dict(r) for r in rows]
     saved = {r["job_id"]: r["id"] for r in db.query("SELECT id, job_id FROM applications WHERE job_id IS NOT NULL")}
@@ -228,9 +250,9 @@ def jobs_list(request: Request) -> HTMLResponse:
     total = db.one("SELECT COUNT(*) AS n FROM jobs")["n"]
     filters = {
         "q": term, "fonte": source, "estado": state, "ordem": order, "min": min_score,
-        "local": local, "modo": modo, "salario": salario,
+        "local": local, "regiao": regiao, "modo": modo, "salario": salario, "moeda": moeda,
     }
-    back_qs = urlencode({k: v for k, v in filters.items() if v})
+    back_qs = urlencode({k: v for k, v in filters.items() if v} | {"pagina": pagina})
     return render(
         request,
         "jobs.html",
@@ -239,6 +261,10 @@ def jobs_list(request: Request) -> HTMLResponse:
         sources=sources,
         locations=locations,
         total=total,
+        found=found,
+        pagina=pagina,
+        pages=pages,
+        page_qs=urlencode({k: v for k, v in filters.items() if v}),
         filters=filters,
         back_qs=back_qs,
     )

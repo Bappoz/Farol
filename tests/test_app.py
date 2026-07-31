@@ -114,6 +114,25 @@ def test_filtro_de_modelo_de_trabalho(client, com_vagas):
     assert "Junior Python Developer" in todos_remotos.text
 
 
+def test_lista_vazia_por_modelo_explica_que_as_fontes_sao_remote_only(client, com_vagas):
+    """Empty state tem de dizer o porquê, não só 'afrouxe o fit'."""
+    resposta = client.get("/vagas?estado=todas&min=0&modo=presencial")
+    assert "portais de trabalho remoto" in resposta.text
+
+
+def test_filtro_de_regiao_agrupa_localizacoes(client, com_vagas):
+    brasil = client.get("/vagas?estado=todas&min=0&regiao=brasil")
+    assert "Junior Backend Developer" in brasil.text  # Himalayas: "Brazil, Latin America"
+    assert "Junior Data Analyst" not in brasil.text   # Berlin
+
+    mundial = client.get("/vagas?estado=todas&min=0&regiao=mundial")
+    assert "Junior Python Developer" in mundial.text  # Worldwide
+    assert "Junior Backend Developer" not in mundial.text
+
+    outros = client.get("/vagas?estado=todas&min=0&regiao=outros")
+    assert "Junior Data Analyst" in outros.text       # Berlin
+
+
 def test_filtro_de_salario_combina_com_localizacao(client, com_vagas):
     alto = client.get("/vagas?estado=todas&min=0&salario=55000")
     assert "Junior Python Developer" in alto.text       # faixa 40k–60k
@@ -122,6 +141,60 @@ def test_filtro_de_salario_combina_com_localizacao(client, com_vagas):
 
     combinado = client.get("/vagas?estado=todas&min=0&salario=55000&local=Worldwide")
     assert "Junior Python Developer" in combinado.text
+
+
+def test_filtro_de_salario_nao_compara_moedas_diferentes(client, com_vagas):
+    """Vaga em euro não pode aparecer num filtro em dólar: o app não converte câmbio."""
+    db.execute(
+        """INSERT INTO jobs (source, source_id, fingerprint, title, company, location, remote,
+                             work_mode, region, salary, salary_min, salary_max, salary_currency,
+                             score, score_data)
+           VALUES ('arbeitnow', '900', 'eur', 'Euro Engineer', 'Datenhaus', 'Berlin', 1,
+                   'remoto', 'outros', 'EUR 90.000', 90000, 90000, 'EUR', 60,
+                   '{"matched": [], "missing": [], "flags": [], "components": []}')"""
+    )
+    em_dolar = client.get("/vagas?estado=todas&min=0&salario=80000&moeda=USD")
+    assert "Euro Engineer" not in em_dolar.text
+
+    em_euro = client.get("/vagas?estado=todas&min=0&salario=80000&moeda=EUR")
+    assert "Euro Engineer" in em_euro.text
+
+
+def test_vaga_sem_score_data_nao_derruba_as_paginas(client, perfil):
+    """score_data tem DEFAULT '{}' no schema — template não pode assumir as chaves."""
+    db.execute(
+        """INSERT INTO jobs (source, source_id, fingerprint, title, company, score)
+           VALUES ('x', '1', 'fp', 'Vaga crua', 'Sem Nome', 40)"""
+    )
+    job_id = db.one("SELECT id FROM jobs WHERE title = 'Vaga crua'")["id"]
+    assert client.get("/vagas?estado=todas&min=0").status_code == 200
+    assert client.get(f"/vagas/{job_id}").status_code == 200
+
+
+def test_lista_de_vagas_pagina(client, com_vagas, monkeypatch):
+    from farol import app as app_mod
+
+    monkeypatch.setattr(app_mod, "PAGE_SIZE", 2)
+    primeira = client.get("/vagas?estado=todas&min=0&ordem=empresa")
+    assert "página 1 de" in primeira.text
+    assert "próximas" in primeira.text
+
+    segunda = client.get("/vagas?estado=todas&min=0&ordem=empresa&pagina=2")
+    assert "página 2 de" in segunda.text
+    assert "anteriores" in segunda.text
+
+    # títulos da página 2 não repetem os da página 1
+    def titulos(texto):
+        return {t for t in ("Junior Python Developer", "Junior Frontend Engineer",
+                            "Junior Data Analyst", "Junior Backend Developer") if t in texto}
+
+    assert not (titulos(primeira.text) & titulos(segunda.text))
+
+
+def test_pagina_acima_do_total_cai_na_ultima(client, com_vagas):
+    resposta = client.get("/vagas?estado=todas&min=0&pagina=999")
+    assert resposta.status_code == 200
+    assert "Nada por aqui" not in resposta.text
 
 
 def test_fonte_quebrada_vira_diagnostico(monkeypatch, perfil):

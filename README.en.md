@@ -140,10 +140,18 @@ farol servir          server only, in the foreground
 farol atualizar       collect job postings and exit
 farol caminho         print where the database and files live
 farol versao          print the installed version
+farol update          check for a newer app version and install it
 ```
 
 Options: `--port`, `--host`, `--reload` and `--sem-navegador` (skip opening the
 browser). Run `farol --help` for the full description.
+
+`farol update` only works when the app was installed from a git clone (the
+path described in [Installation](#installation)): it fetches the remote,
+compares it against the installed commit, and — if there's something new —
+does a `git pull --ff-only` and reinstalls dependencies in the same
+environment. It refuses to touch anything if there are uncommitted local
+changes; resolve those first.
 
 ---
 

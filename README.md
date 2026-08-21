@@ -366,6 +366,7 @@ farol servir          apenas o servidor, no primeiro plano
 farol atualizar       apenas a coleta de vagas
 farol caminho         mostra onde ficam o banco e os arquivos
 farol versao          mostra a versão instalada
+farol update          verifica se há uma versão nova do app e atualiza
 ```
 
 Opções: `--port`, `--host`, `--reload` e `--sem-navegador`. Use `farol --help`
@@ -375,6 +376,12 @@ O comando `farol atualizar` imprime uma linha por fonte com o que foi encontrado
 ou o erro exato, e **ignora** a janela de descanso. Ao agendá-lo em `cron` ou no
 Agendador de Tarefas, escolha um intervalo folgado — uma ou duas vezes ao dia —
 pela mesma razão descrita em [Política de coleta](#política-de-coleta).
+
+O comando `farol update` só funciona quando o app foi instalado a partir de um
+clone git (o caminho descrito em [Instalação](#instalação)): ele busca o
+repositório remoto, compara com o commit instalado e, se houver algo novo, faz
+`git pull --ff-only` e reinstala as dependências no mesmo ambiente. Com mudanças
+locais não commitadas ele se recusa a mexer — resolva-as primeiro.
 
 ---
 

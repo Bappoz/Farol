@@ -5,6 +5,7 @@
     farol atualizar   só a coleta de vagas, e sai
     farol caminho     mostra onde ficam banco e arquivos
     farol versao      mostra a versão instalada
+    farol update      verifica se há uma versão nova do app e atualiza
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ import sys
 from . import __version__
 
 DEFAULT_PORT = 7788
-COMMANDS = ("abrir", "servir", "atualizar", "caminho", "versao")
+COMMANDS = ("abrir", "servir", "atualizar", "caminho", "versao", "update")
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -28,11 +29,12 @@ def _parser() -> argparse.ArgumentParser:
             "  farol                    abre a janela do aplicativo\n"
             "  farol atualizar          coleta vagas sem abrir nada (bom para cron)\n"
             "  farol servir --port 8000 servidor em outra porta\n"
+            "  farol update             verifica e instala uma versão nova do app\n"
         ),
     )
     parser.add_argument(
         "comando", nargs="?", default="abrir", choices=COMMANDS,
-        help="abrir (padrão), servir, atualizar, caminho ou versao",
+        help="abrir (padrão), servir, atualizar, caminho, versao ou update",
     )
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"porta local (padrão {DEFAULT_PORT})")
     parser.add_argument("--host", default="127.0.0.1", help="interface do servidor (padrão 127.0.0.1)")
@@ -65,12 +67,42 @@ def _collect() -> int:
     return 0
 
 
+def _selfupdate() -> int:
+    from . import selfupdate
+
+    result = selfupdate.run()
+    status = result["status"]
+
+    if status == "no_git":
+        print("Este farol não veio de um clone git — sem atualização automática por aqui.")
+        print(f"Baixe a versão mais nova em {selfupdate.REPO_URL}/releases e reinstale.")
+        return 1
+    if status == "dirty":
+        print(f"Há mudanças não commitadas em {selfupdate.APP_DIR} — resolva (git status) antes de atualizar.")
+        return 1
+    if status == "error":
+        print(f"Não deu para atualizar: {result['detail']}")
+        return 1
+    if status == "up_to_date":
+        print(f"Farol já está atualizado (versão {result['versao']}).")
+        return 0
+
+    print(f"Farol atualizado para a versão {result['versao']}.")
+    if result.get("install_detail"):
+        print("Atenção: as dependências podem não ter sido reinstaladas por completo:")
+        print(result["install_detail"])
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
 
     if args.comando == "versao":
         print(f"farol {__version__}")
         return 0
+
+    if args.comando == "update":
+        return _selfupdate()
 
     from . import db
 

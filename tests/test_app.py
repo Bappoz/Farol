@@ -841,6 +841,29 @@ def test_estado_de_vaga_fora_da_lista_e_recusado(client, com_vagas):
     assert db.one("SELECT state FROM jobs WHERE id = ?", (job_id,))["state"] == "novo"
 
 
+# ------------------------------------------------------------- fontes RSS
+
+
+def test_feed_rss_recebe_id_estavel(client):
+    """`hash()` do Python é aleatório por processo: o mesmo feed voltava duplicado."""
+    url = "https://exemplo.com/vagas.rss"
+    for _ in range(2):
+        client.post("/ajustes/fontes", data={"acao": "adicionar", "label": "Feed", "url": url})
+    feeds = db.query("SELECT id FROM sources WHERE kind = 'rss'")
+    assert len(feeds) == 1
+
+    esperado = feeds[0]["id"]
+    db.execute("DELETE FROM sources WHERE kind = 'rss'")
+    client.post("/ajustes/fontes", data={"acao": "adicionar", "label": "Feed", "url": url})
+    assert db.one("SELECT id FROM sources WHERE kind = 'rss'")["id"] == esperado
+
+
+def test_testar_fonte_inexistente_avisa(client):
+    resposta = client.post("/ajustes/fontes", data={"acao": "testar", "id": "nao-existe"},
+                           follow_redirects=False)
+    assert "Fonte+n%C3%A3o+encontrada" in resposta.headers["location"]
+
+
 # ------------------------------------------------- skills gravadas na vaga
 
 

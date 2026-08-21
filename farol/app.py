@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta
@@ -972,7 +973,9 @@ async def settings_sources(request: Request) -> RedirectResponse:
         label = str(form.get("label") or "").strip() or "Feed RSS"
         if not url:
             return go("/ajustes", "Informe a URL do feed.", "warn")
-        sid = "rss-" + str(abs(hash(url)))[:8]
+        # hash estável entre execuções: `hash()` do Python é aleatorizado por
+        # processo, e o mesmo feed acabava cadastrado de novo a cada reinício
+        sid = "rss-" + hashlib.sha1(url.encode("utf-8")).hexdigest()[:10]
         db.execute(
             "INSERT OR REPLACE INTO sources (id, label, kind, url, enabled) VALUES (?, ?, 'rss', ?, 1)",
             (sid, label, url),

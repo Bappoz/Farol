@@ -16,12 +16,56 @@
   });
 })();
 
-// Kanban: arrastar cartão entre colunas persiste o status na hora.
+// Kanban: arrastar cartão entre colunas persiste o status na hora. O seletor de
+// etapa dentro do cartão faz o mesmo pelo teclado e no celular, onde arrastar
+// simplesmente não existe.
 (function kanban() {
   const board = document.querySelector("[data-board]");
   if (!board) return;
 
   let dragging = null;
+
+  async function move(id, status, ticket) {
+    const column = board.querySelector(`[data-status="${status}"]`);
+    if (!column || !ticket) return;
+    const origem = ticket.closest("[data-status]");
+    column.querySelector(".items").appendChild(ticket);
+    updateCounts();
+    try {
+      const response = await fetch(`/candidaturas/${id}/status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+    } catch {
+      // devolve o cartão para onde estava: mentir sobre o estado salvo é pior
+      // que a falha em si
+      if (origem) origem.querySelector(".items").appendChild(ticket);
+      updateCounts();
+      const seletor = ticket.querySelector("[data-move]");
+      if (seletor && origem) seletor.value = origem.dataset.status;
+      warn("Não consegui salvar a etapa. Confira se o Farol ainda está rodando.");
+    }
+  }
+
+  function warn(text) {
+    // sem alert(): ele bloqueia a página inteira até alguém clicar
+    let bar = document.querySelector(".flash.warn[data-live]");
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.className = "flash warn";
+      bar.dataset.live = "1";
+      document.querySelector(".main").insertBefore(bar, document.querySelector(".content"));
+    }
+    bar.textContent = text;
+  }
+
+  board.addEventListener("change", (event) => {
+    const seletor = event.target.closest("[data-move]");
+    if (!seletor) return;
+    move(seletor.dataset.move, seletor.value, seletor.closest(".ticket"));
+  });
 
   board.addEventListener("dragstart", (event) => {
     const ticket = event.target.closest(".ticket");
@@ -44,25 +88,14 @@
       column.classList.add("over");
     });
     column.addEventListener("dragleave", () => column.classList.remove("over"));
-    column.addEventListener("drop", async (event) => {
+    column.addEventListener("drop", (event) => {
       event.preventDefault();
       column.classList.remove("over");
       const id = event.dataTransfer.getData("text/plain");
-      const status = column.dataset.status;
       const ticket = board.querySelector(`.ticket[data-id="${id}"]`);
-      if (!ticket || !status) return;
-      column.querySelector(".items").appendChild(ticket);
-      updateCounts();
-      try {
-        const response = await fetch(`/candidaturas/${id}/status`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status }),
-        });
-        if (!response.ok) throw new Error(await response.text());
-      } catch (error) {
-        alert("Não consegui salvar o novo status. Recarregue a página.");
-      }
+      const seletor = ticket && ticket.querySelector("[data-move]");
+      if (seletor) seletor.value = column.dataset.status;
+      move(id, column.dataset.status, ticket);
     });
   });
 
@@ -103,7 +136,7 @@ document.addEventListener("submit", (event) => {
 });
 
 // Coleta em segundo plano: mostra o indicador enquanto roda e recarrega a
-// listagem quando termina. Quem dispara é a abertura do app (bin/farol-app) ou
+// listagem quando termina. Quem dispara é a abertura do app (farol.launcher) ou
 // o botão "Atualizar vagas".
 (function collectWatcher() {
   const chip = document.querySelector("[data-collect]");

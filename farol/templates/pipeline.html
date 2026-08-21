@@ -2,7 +2,7 @@
 {% from "_icons.html" import icon %}
 {% block title %}Pipeline · Farol{% endblock %}
 {% block heading %}Pipeline{% endblock %}
-{% block subheading %}Arraste o cartão para mudar de etapa — o histórico fica registrado{% endblock %}
+{% block subheading %}Arraste o cartão ou use o seletor de etapa — o histórico fica registrado{% endblock %}
 
 {% block content %}
 <div class="board" data-board>
@@ -14,15 +14,25 @@
     </header>
     <div class="items">
       {% for item in columns[status] %}
-      <a class="ticket" href="/candidaturas/{{ item.id }}" draggable="true" data-id="{{ item.id }}">
-        <b>{{ item.title }}</b>
-        <span class="co">{{ item.company or '—' }}</span>
-        {% if item.next_action %}
-        <span class="next {{ 'late' if item.late }}">
-          {{ icon('clock', 12) }} {{ item.next_action }}{% if item.next_action_at %} · {{ item.next_action_at[5:] }}{% endif %}
-        </span>
-        {% endif %}
-      </a>
+      <div class="ticket" draggable="true" data-id="{{ item.id }}">
+        <a href="/candidaturas/{{ item.id }}">
+          <b>{{ item.title }}</b>
+          <span class="co">{{ item.company or '—' }}</span>
+          {% if item.next_action %}
+          <span class="next {{ 'late' if item.late }}">
+            {{ icon('clock', 12) }} {{ item.next_action }}{% if item.next_action_at %} · {{ item.next_action_at[5:] }}{% endif %}
+          </span>
+          {% endif %}
+        </a>
+        {# arrastar não existe em tela de toque nem no teclado: o seletor é o
+           caminho equivalente, e é ele que o leitor de tela encontra #}
+        <select class="ticket-move" data-move="{{ item.id }}"
+                aria-label="Etapa de {{ item.title }}">
+          {% for value in statuses %}
+          <option value="{{ value }}" {{ 'selected' if value == item.status }}>{{ status_labels[value] }}</option>
+          {% endfor %}
+        </select>
+      </div>
       {% endfor %}
     </div>
   </section>

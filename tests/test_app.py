@@ -786,6 +786,61 @@ def test_editor_nao_mexe_em_pdf_enviado(client, perfil):
     assert db.one("SELECT kind, data FROM resumes WHERE id = ?", (resume_id,))["data"] == "{}"
 
 
+# ------------------------------------------------------ entrada malformada
+# Todos estes casos devolviam 500 antes: valor não numérico onde a rota esperava
+# inteiro, e corpo JSON vazio. São entrada possível — link colado, formulário
+# editado, extensão do navegador — e não podem derrubar a página.
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "/vagas?pagina=abc",
+        "/vagas?pagina=-3",
+        "/vagas?min=abc",
+        "/vagas?min=999",
+        "/vagas?salario=abc",
+        "/vagas?salario=-1",
+        "/vagas?moeda=XPTO&salario=10",
+        "/vagas?regiao=inexistente",
+        "/vagas?modo=inexistente",
+        "/vagas?ordem=inexistente",
+    ],
+)
+def test_filtros_com_valor_invalido_nao_derrubam_a_lista(client, com_vagas, url):
+    assert client.get(url).status_code == 200
+
+
+def test_remover_busca_com_id_nao_numerico(client):
+    resposta = client.post("/ajustes/buscas", data={"acao": "remover", "id": "abc"},
+                           follow_redirects=False)
+    assert resposta.status_code == 303
+    assert "encontrada" in resposta.headers["location"]
+
+
+def test_criar_curriculo_com_job_id_nao_numerico(client, perfil):
+    resposta = client.post("/curriculos", data={"job_id": "abc"}, follow_redirects=False)
+    assert resposta.status_code == 303
+    resume_id = int(resposta.headers["location"].split("/curriculos/")[1].split("?")[0])
+    assert db.one("SELECT job_id FROM resumes WHERE id = ?", (resume_id,))["job_id"] is None
+
+
+def test_mudar_etapa_com_corpo_vazio(client):
+    app_id = db.execute("INSERT INTO applications (title) VALUES ('Vaga')")
+    resposta = client.post(f"/candidaturas/{app_id}/status", content=b"",
+                           headers={"Content-Type": "application/json"})
+    assert resposta.status_code == 400
+
+
+def test_estado_de_vaga_fora_da_lista_e_recusado(client, com_vagas):
+    job_id = db.one("SELECT id FROM jobs LIMIT 1")["id"]
+    resposta = client.post(f"/vagas/{job_id}/estado", data={"state": "lixo"},
+                           follow_redirects=False)
+    assert resposta.status_code == 303
+    # a vaga continua visível: um estado desconhecido a esconderia de todo filtro
+    assert db.one("SELECT state FROM jobs WHERE id = ?", (job_id,))["state"] == "novo"
+
+
 # ------------------------------------------------- skills gravadas na vaga
 
 

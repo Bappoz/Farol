@@ -101,6 +101,19 @@ def _bullets(raw: str) -> list[str]:
     return [line.strip("•- ").strip() for line in (raw or "").splitlines() if line.strip()]
 
 
+def _int(value: Any, default: int = 0) -> int:
+    """Inteiro vindo de formulário ou query string, sem derrubar a página.
+
+    Todo campo numérico que chega do navegador passa por aqui: `?pagina=abc` e
+    `id=` são entrada possível (link colado, extensão, formulário editado) e não
+    podem virar erro 500.
+    """
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return default
+
+
 @app.get("/saude")
 def health() -> JSONResponse:
     return JSONResponse({"ok": True, "app": "farol", "db": str(db.db_path())})
@@ -193,18 +206,9 @@ def jobs_list(request: Request) -> HTMLResponse:
     moeda = params.get("moeda") or "USD"
     if moeda not in scoring.SALARY_CURRENCIES:
         moeda = "USD"
-    try:
-        min_score = int(params.get("min") or settings.get("min_score") or 0)
-    except ValueError:
-        min_score = 0
-    try:
-        salario = int(params.get("salario") or 0)
-    except ValueError:
-        salario = 0
-    try:
-        pagina = max(1, int(params.get("pagina") or 1))
-    except ValueError:
-        pagina = 1
+    min_score = max(0, min(100, _int(params.get("min"), _int(settings.get("min_score"), 0))))
+    salario = max(0, _int(params.get("salario")))
+    pagina = max(1, _int(params.get("pagina"), 1))
 
     where = ["score >= ?"]
     args: list[Any] = [min_score]
@@ -356,12 +360,19 @@ def job_save(job_id: int) -> RedirectResponse:
     return go(f"/candidaturas/{app_id}", "Vaga adicionada ao pipeline.")
 
 
+JOB_STATES = ("novo", "descartada")
+
+
 @app.post("/vagas/{job_id}/estado")
 async def job_state(request: Request, job_id: int) -> RedirectResponse:
     form = await request.form()
     state = str(form.get("state") or "novo")
-    db.execute("UPDATE jobs SET state = ? WHERE id = ?", (state, job_id))
     back = str(form.get("back") or "/vagas")
+    if state not in JOB_STATES:
+        # um valor fora da lista sumiria com a vaga: ela não aparece nem em
+        # "ativas" nem em "descartadas"
+        return go(back, "Estado de vaga desconhecido.", "warn")
+    db.execute("UPDATE jobs SET state = ? WHERE id = ?", (state, job_id))
     return go(back, "Vaga descartada." if state == "descartada" else "Vaga restaurada.")
 
 
@@ -453,8 +464,11 @@ async def application_update(request: Request, app_id: int) -> RedirectResponse:
 
 @app.post("/candidaturas/{app_id}/status")
 async def application_status(request: Request, app_id: int) -> JSONResponse:
-    payload = await request.json()
-    status = str(payload.get("status") or "")
+    try:
+        payload = await request.json()
+    except (ValueError, UnicodeDecodeError):
+        return JSONResponse({"ok": False, "erro": "corpo JSON inválido"}, status_code=400)
+    status = str((payload or {}).get("status") or "")
     if status not in db.STATUSES:
         return JSONResponse({"ok": False, "erro": "status inválido"}, status_code=400)
     current = db.one("SELECT status, applied_at FROM applications WHERE id = ?", (app_id,))
@@ -516,11 +530,13 @@ def resumes_list(request: Request) -> HTMLResponse:
 async def resume_create(request: Request) -> RedirectResponse:
     form = await request.form()
     profile = db.get_profile()
-    raw_job = str(form.get("job_id") or "").strip()
+    job_id = _int(form.get("job_id")) or None
     job = None
-    if raw_job:
-        row = db.one("SELECT * FROM jobs WHERE id = ?", (int(raw_job),))
+    if job_id:
+        row = db.one("SELECT * FROM jobs WHERE id = ?", (job_id,))
         job = job_dict(row) if row else None
+        if job is None:
+            job_id = None
     lang = "en" if str(form.get("lang") or "pt") == "en" else "pt"
     template = resume_mod.template_or_default(str(form.get("template") or ""))
     data = resume_mod.build(profile, job)
@@ -530,12 +546,12 @@ async def resume_create(request: Request) -> RedirectResponse:
         if lang == "en":
             name += " (EN)"
     letter = resume_mod.cover_letter(profile, job, lang)
-    application = db.one("SELECT id FROM applications WHERE job_id = ?", (int(raw_job),)) if raw_job else None
+    application = db.one("SELECT id FROM applications WHERE job_id = ?", (job_id,)) if job_id else None
     resume_id = db.execute(
         """INSERT INTO resumes (name, job_id, application_id, lang, template, data, letter)
            VALUES (?, ?, ?, ?, ?, ?, ?)""",
-        (name[:120], int(raw_job) if raw_job else None,
-         application["id"] if application else None, lang, template, db.dumps(data), letter),
+        (name[:120], job_id, application["id"] if application else None,
+         lang, template, db.dumps(data), letter),
     )
     msg = "Currículo criado a partir do seu perfil."
     if lang == "en":
@@ -557,16 +573,17 @@ async def resume_upload(request: Request) -> RedirectResponse:
     if not pdfs.is_pdf(content):
         return go("/curriculos", "Só aceito PDF por enquanto — esse arquivo não é um.", "warn")
 
-    raw_job = str(form.get("job_id") or "").strip()
-    application = db.one("SELECT id FROM applications WHERE job_id = ?", (int(raw_job),)) if raw_job else None
+    job_id = _int(form.get("job_id")) or None
+    if job_id and db.one("SELECT id FROM jobs WHERE id = ?", (job_id,)) is None:
+        job_id = None
+    application = db.one("SELECT id FROM applications WHERE job_id = ?", (job_id,)) if job_id else None
     name = str(form.get("name") or "").strip() or Path(upload.filename).stem[:120]  # type: ignore[union-attr]
     lang = "en" if str(form.get("lang") or "pt") == "en" else "pt"
 
     resume_id = db.execute(
         """INSERT INTO resumes (name, job_id, application_id, lang, kind, file, data)
            VALUES (?, ?, ?, ?, 'arquivo', '', '{}')""",
-        (name[:120], int(raw_job) if raw_job else None,
-         application["id"] if application else None, lang),
+        (name[:120], job_id, application["id"] if application else None, lang),
     )
     relative = pdfs.save(resume_id, name, content)
     db.execute("UPDATE resumes SET file = ? WHERE id = ?", (relative, resume_id))
@@ -989,11 +1006,14 @@ async def settings_searches(request: Request) -> RedirectResponse:
             (str(form.get("label") or keywords)[:60], keywords),
         )
         return go("/ajustes", "Busca adicionada.")
+    search_id = _int(form.get("id"))
+    if action in ("remover", "toggle") and not search_id:
+        return go("/ajustes", "Busca não encontrada.", "warn")
     if action == "remover":
-        db.execute("DELETE FROM searches WHERE id = ?", (int(str(form.get("id"))),))
+        db.execute("DELETE FROM searches WHERE id = ?", (search_id,))
         return go("/ajustes", "Busca removida.")
     if action == "toggle":
-        db.execute("UPDATE searches SET enabled = 1 - enabled WHERE id = ?", (int(str(form.get("id"))),))
+        db.execute("UPDATE searches SET enabled = 1 - enabled WHERE id = ?", (search_id,))
         return go("/ajustes", "Busca atualizada.")
     return go("/ajustes", "Ação desconhecida.", "warn")
 

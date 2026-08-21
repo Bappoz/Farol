@@ -295,6 +295,15 @@ e a única que traz vaga híbrida e presencial em quantidade. Ela não recebe te
 de busca: cada repositório já é a seleção, e filtrar anúncio em português por
 termo escrito para portal em inglês devolveria lista vazia.
 
+**Vaga que sai do ar.** Nenhum portal avisa quando remove um anúncio; o único
+sinal é ele parar de aparecer nas coletas. Depois de três semanas sem reaparecer
+(`FAROL_STALE_DAYS` ajusta), a vaga é marcada como *fora do ar*: some da lista e
+deixa de contar no roadmap e nas métricas, mas continua no banco, porque pode
+estar ligada a uma candidatura em andamento. O filtro *Estado → fora do ar* traz
+essas vagas de volta à tela. A marcação só acontece depois de uma rodada que
+trouxe resultado — se todas as fontes falharam, o sumiço é da rede, não do
+anúncio.
+
 Um portal fora do ar ou uma API que mudou de formato não derruba a coleta: a
 fonte é marcada como erro em Ajustes, com a mensagem original, e o botão
 **testar** executa apenas aquela fonte.

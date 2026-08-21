@@ -37,7 +37,9 @@ def demand(limit: int = 400) -> Counter:
     """
     counter: Counter = Counter()
     for row in db.query(
-        "SELECT skills FROM jobs ORDER BY score DESC, last_seen_at DESC LIMIT ?", (limit,)
+        """SELECT skills FROM jobs WHERE state <> 'expirada'
+           ORDER BY score DESC, last_seen_at DESC LIMIT ?""",
+        (limit,),
     ):
         counter.update(set(db.loads(row["skills"], [])))
     return counter
@@ -45,7 +47,7 @@ def demand(limit: int = 400) -> Counter:
 
 def sample_size(limit: int = 400) -> int:
     """Quantas vagas entraram no cálculo de demanda — o denominador de `share`."""
-    row = db.one("SELECT MIN(COUNT(*), ?) AS n FROM jobs", (limit,))
+    row = db.one("SELECT MIN(COUNT(*), ?) AS n FROM jobs WHERE state <> 'expirada'", (limit,))
     return max(1, row["n"] if row else 1)
 
 

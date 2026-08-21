@@ -28,6 +28,11 @@ REQUEST_DELAY_SECONDS = float(os.environ.get("FAROL_REQUEST_DELAY", "1.5"))
 # gargalo aqui é espera de rede, não CPU.
 MAX_PARALLEL_SOURCES = int(os.environ.get("FAROL_PARALLEL_SOURCES", "5"))
 
+# Depois de quantos dias sem reaparecer numa coleta a vaga é dada como encerrada.
+# Portal nenhum avisa que tirou o anúncio do ar; o sumiço é o único sinal, e sem
+# uma janela a base só cresce — com anúncio morto sujando lista e roadmap.
+STALE_AFTER_DAYS = int(os.environ.get("FAROL_STALE_DAYS", "21"))
+
 
 def fingerprint(title: str, company: str) -> str:
     raw = f"{skills.normalize(title)}|{skills.normalize(company)}"
@@ -211,6 +216,8 @@ def run(source_ids: list[str] | None = None) -> dict[str, Any]:
             }
         )
 
+    expiradas = expire(conn) if any(r["found"] for r in report) else 0
+
     destaques: list[dict[str, Any]] = []
     if total_new and settings.get("notify_new_jobs") == "1":
         try:
@@ -219,7 +226,28 @@ def run(source_ids: list[str] | None = None) -> dict[str, Any]:
             limite = 70
         destaques = highlights(started, limite)
         notify(destaques)
-    return {"sources": report, "new": total_new, "highlights": destaques}
+    return {"sources": report, "new": total_new, "highlights": destaques,
+            "expired": expiradas}
+
+
+def expire(conn=None) -> int:
+    """Marca como expirada a vaga que parou de aparecer nas coletas.
+
+    Só roda depois de uma rodada que trouxe alguma coisa: se todas as fontes
+    falharam, o sumiço é do coletor, não do anúncio, e expirar a base inteira
+    por causa de uma queda de rede seria o pior desfecho possível.
+
+    Nada é apagado — a vaga sai da lista e do roadmap, mas continua no banco,
+    porque pode estar ligada a uma candidatura em andamento.
+    """
+    conn = conn or db.connect()
+    corte = (_utcnow() - timedelta(days=STALE_AFTER_DAYS)).isoformat(sep=" ", timespec="seconds")
+    with conn:
+        cursor = conn.execute(
+            "UPDATE jobs SET state = 'expirada' WHERE state = 'novo' AND last_seen_at < ?",
+            (corte,),
+        )
+    return cursor.rowcount or 0
 
 
 # ------------------------------------------------------- coleta em segundo plano

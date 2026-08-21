@@ -25,6 +25,20 @@
 
   let dragging = null;
 
+  async function persistOrder(column) {
+    const ordem = [...column.querySelectorAll(".ticket")].map((t) => Number(t.dataset.id));
+    if (!ordem.length) return;
+    try {
+      await fetch(`/candidaturas/${ordem[0]}/ordem`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ordem }),
+      });
+    } catch {
+      // ordem é conforto, não dado: falhar aqui não merece interromper ninguém
+    }
+  }
+
   async function move(id, status, ticket) {
     const column = board.querySelector(`[data-status="${status}"]`);
     if (!column || !ticket) return;
@@ -88,14 +102,25 @@
       column.classList.add("over");
     });
     column.addEventListener("dragleave", () => column.classList.remove("over"));
-    column.addEventListener("drop", (event) => {
+    column.addEventListener("drop", async (event) => {
       event.preventDefault();
       column.classList.remove("over");
       const id = event.dataTransfer.getData("text/plain");
       const ticket = board.querySelector(`.ticket[data-id="${id}"]`);
-      const seletor = ticket && ticket.querySelector("[data-move]");
+      if (!ticket) return;
+      const mesmaColuna = ticket.closest("[data-status]") === column;
+      const seletor = ticket.querySelector("[data-move]");
       if (seletor) seletor.value = column.dataset.status;
-      move(id, column.dataset.status, ticket);
+
+      // soltar sobre um cartão insere antes dele; soltar no vazio vai para o fim
+      const alvo = event.target.closest(".ticket");
+      const itens = column.querySelector(".items");
+      if (alvo && alvo !== ticket) itens.insertBefore(ticket, alvo);
+      else itens.appendChild(ticket);
+      updateCounts();
+
+      if (!mesmaColuna) await move(id, column.dataset.status, ticket);
+      persistOrder(column);
     });
   });
 
@@ -173,6 +198,9 @@ document.addEventListener("submit", (event) => {
           state.error
             ? `A coleta falhou: ${state.error}`
             : `Coleta concluída: ${novas} vaga(s) nova(s)` +
+              (state.report && state.report.expired
+                ? ` · ${state.report.expired} saíram do ar`
+                : "") +
               (falhas.length ? ` · falharam: ${falhas.map((f) => f.label).join(", ")}` : "."),
         );
         url.searchParams.set("tone", state.error || falhas.length ? "warn" : "ok");

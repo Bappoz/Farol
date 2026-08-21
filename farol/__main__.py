@@ -58,7 +58,10 @@ def _collect() -> int:
         if source["error"]:
             line += f"  ← {source['error']}"
         print(line)
-    print(f"\n{report['new']} vagas novas no total.")
+    resumo = f"\n{report['new']} vagas novas no total."
+    if report.get("expired"):
+        resumo += f" {report['expired']} saíram do ar e foram marcadas como expiradas."
+    print(resumo)
     return 0
 
 

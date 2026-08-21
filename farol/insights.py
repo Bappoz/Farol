@@ -231,7 +231,7 @@ def salary_snapshot() -> list[dict[str, Any]]:
         """SELECT salary_currency AS moeda, COUNT(*) AS n,
                   AVG(salary_min) AS media_min, AVG(salary_max) AS media_max
            FROM jobs
-           WHERE salary_currency <> '' AND salary_max IS NOT NULL AND state = 'novo'
+           WHERE salary_currency <> '' AND salary_max IS NOT NULL AND state <> 'expirada'
            GROUP BY salary_currency ORDER BY n DESC"""
     ):
         linhas.append({

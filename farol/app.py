@@ -29,6 +29,10 @@ PAGE_SIZE = 50
 
 # colunas da listagem: `description` chega a 20 KB por vaga e não aparece na lista.
 # Trazer 50 delas era mais de um megabyte lido do disco a cada página.
+# estados que a listagem oferece como filtro. 'expirada' entra aqui para o
+# usuário poder revisitar o que saiu do ar, mas nunca é o padrão.
+JOB_LIST_STATES = ("novo", "descartada", "expirada")
+
 JOB_LIST_COLUMNS = """id, source, title, company, url, apply_url, location, remote, work_mode,
                       region, salary, tags, published_at, first_seen_at, last_seen_at, score,
                       score_data, state"""
@@ -233,7 +237,11 @@ def jobs_list(request: Request) -> HTMLResponse:
 
     where = ["score >= ?"]
     args: list[Any] = [min_score]
-    if state in ("novo", "descartada"):
+    if state in JOB_LIST_STATES:
+        where.append("state = ?")
+        args.append(state)
+    elif state != "todas":
+        state = "novo"
         where.append("state = ?")
         args.append(state)
     if source:
@@ -381,7 +389,7 @@ def job_save(job_id: int) -> RedirectResponse:
     return go(f"/candidaturas/{app_id}", "Vaga adicionada ao pipeline.")
 
 
-JOB_STATES = ("novo", "descartada")
+JOB_STATES = ("novo", "descartada")  # 'expirada' é do coletor, não do usuário
 
 
 @app.post("/vagas/{job_id}/estado")
@@ -489,6 +497,30 @@ async def application_update(request: Request, app_id: int) -> RedirectResponse:
     return go(f"/candidaturas/{app_id}", "Candidatura atualizada.")
 
 
+@app.post("/candidaturas/{app_id}/ordem")
+async def application_reorder(request: Request, app_id: int) -> JSONResponse:
+    """Reordena o cartão dentro da coluna.
+
+    A coluna `position` existia no schema e no ORDER BY desde o começo, mas nunca
+    era escrita: arrastar para cima ou para baixo dentro da mesma etapa não
+    guardava nada.
+    """
+    try:
+        payload = await request.json()
+    except (ValueError, UnicodeDecodeError):
+        return JSONResponse({"ok": False, "erro": "corpo JSON inválido"}, status_code=400)
+    ordem = [_int(item) for item in (payload or {}).get("ordem") or []]
+    if not ordem:
+        return JSONResponse({"ok": False, "erro": "ordem vazia"}, status_code=400)
+    conn = db.connect()
+    with conn:
+        conn.executemany(
+            "UPDATE applications SET position = ? WHERE id = ?",
+            [(posicao, identificador) for posicao, identificador in enumerate(ordem)],
+        )
+    return JSONResponse({"ok": True})
+
+
 @app.post("/candidaturas/{app_id}/status")
 async def application_status(request: Request, app_id: int) -> JSONResponse:
     try:
@@ -504,9 +536,13 @@ async def application_status(request: Request, app_id: int) -> JSONResponse:
     applied_at = current["applied_at"]
     if status != "salva" and not applied_at:
         applied_at = date.today().isoformat()
+    fim = db.one(
+        "SELECT COALESCE(MAX(position), -1) + 1 AS n FROM applications WHERE status = ?", (status,)
+    )["n"]
     db.execute(
-        "UPDATE applications SET status=?, applied_at=?, updated_at=datetime('now') WHERE id=?",
-        (status, applied_at, app_id),
+        """UPDATE applications SET status=?, applied_at=?, position=?,
+                                   updated_at=datetime('now') WHERE id=?""",
+        (status, applied_at, fim, app_id),
     )
     if current["status"] != status:
         db.execute(

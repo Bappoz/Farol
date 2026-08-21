@@ -7,6 +7,14 @@ Versionamento conforme [SemVer](https://semver.org/lang/pt-BR/).
 
 ### Adicionado
 
+- Vaga que para de aparecer nas coletas por três semanas passa a ser marcada
+  como **fora do ar**: sai da lista, do roadmap e das métricas, mas continua no
+  banco. Antes a base só crescia, e o roadmap calculava demanda sobre anúncio
+  morto. A marcação nunca ocorre depois de uma rodada em que todas as fontes
+  falharam.
+- Reordenar cartão dentro da coluna do pipeline passa a funcionar: a coluna
+  `position` existia no esquema e no `ORDER BY` desde o começo, mas nunca era
+  escrita. Mudar de etapa também posiciona o cartão no fim da coluna de destino.
 - Tela de **Métricas**: conversão entre etapas do funil, tempo mediano de cada
   passo, ritmo semanal de envios e respostas, candidaturas paradas, retorno por
   fonte, faixa salarial das vagas coletadas e a comparação entre o fit das vagas

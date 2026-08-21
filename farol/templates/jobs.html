@@ -77,6 +77,7 @@
       <select id="estado" name="estado" data-autosubmit>
         <option value="novo" {{ 'selected' if filters.estado == 'novo' }}>ativas</option>
         <option value="descartada" {{ 'selected' if filters.estado == 'descartada' }}>descartadas</option>
+        <option value="expirada" {{ 'selected' if filters.estado == 'expirada' }}>fora do ar</option>
         <option value="todas" {{ 'selected' if filters.estado == 'todas' }}>todas</option>
       </select>
     </div>
@@ -145,6 +146,9 @@
         embutidas é de portal de trabalho remoto; quem publica vaga de escritório é a Vagas BR e,
         em menor quantidade, a Arbeitnow. Se a busca continuar vazia, adicione em Ajustes o feed
         RSS de um portal que anuncie {{ work_mode_labels[filters.modo] | lower }}.
+      {% elif filters.estado == 'expirada' %}
+        Nenhuma vaga saiu do ar ainda. O Farol marca assim o anúncio que para de aparecer nas
+        coletas por três semanas — portal nenhum avisa que tirou a vaga, o sumiço é o único sinal.
       {% elif filters.salario %}
         Nenhuma vaga com salário informado a partir de
         {{ currency_labels[filters.moeda] }} {{ '{:,}'.format(filters.salario).replace(',', '.') }}/ano.

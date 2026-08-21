@@ -6,14 +6,14 @@
 #
 # O volume é obrigatório na prática: sem ele o banco vai embora com o contêiner.
 
-FROM python:3.12-slim AS build
+FROM python:3.14-slim AS build
 
 WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY farol ./farol
 RUN pip install --no-cache-dir --prefix=/install .
 
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 # poppler-utils dá o `pdftotext`, alternativa de leitura quando o pypdf não
 # consegue extrair a camada de texto de um currículo enviado

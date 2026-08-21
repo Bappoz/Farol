@@ -841,6 +841,13 @@ def test_estado_de_vaga_fora_da_lista_e_recusado(client, com_vagas):
     assert db.one("SELECT state FROM jobs WHERE id = ?", (job_id,))["state"] == "novo"
 
 
+def test_endereco_inexistente_devolve_pagina_e_404(client):
+    resposta = client.get("/nao-existe")
+    assert resposta.status_code == 404
+    assert "text/html" in resposta.headers["content-type"]
+    assert "não encontrada" in resposta.text
+
+
 # ------------------------------------------------------------- fontes RSS
 
 

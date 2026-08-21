@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ titulo }} · Farol{% endblock %}
+{% block heading %}{{ titulo }}{% endblock %}
+{% block subheading %}erro {{ code }}{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="empty">
+    <b>{{ detalhe }}</b>
+    Use o menu à esquerda para voltar ao que existe.
+  </div>
+  <div style="display:flex; gap:8px; justify-content:center; padding-bottom:20px">
+    <a class="btn btn-primary" href="/">Ir para o Painel</a>
+    <a class="btn" href="/vagas">Ver vagas</a>
+  </div>
+</div>
+{% endblock %}

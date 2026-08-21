@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.gzip import GZipMiddleware
 
@@ -59,7 +60,7 @@ def go(path: str, msg: str = "", tone: str = "ok") -> RedirectResponse:
     return RedirectResponse(path, status_code=303)
 
 
-def render(request: Request, template: str, **context: Any) -> HTMLResponse:
+def render(request: Request, template: str, status_code: int = 200, **context: Any) -> HTMLResponse:
     settings = db.get_settings()
     profile = context.pop("profile", None) or db.get_profile()
     base = {
@@ -80,7 +81,7 @@ def render(request: Request, template: str, **context: Any) -> HTMLResponse:
         "collect_state": collect.status(),
     }
     base.update(context)
-    return templates.TemplateResponse(request, template, base)
+    return templates.TemplateResponse(request, template, base, status_code=status_code)
 
 
 def job_dict(row: Any) -> dict[str, Any]:
@@ -118,6 +119,20 @@ def _int(value: Any, default: int = 0) -> int:
 @app.get("/saude")
 def health() -> JSONResponse:
     return JSONResponse({"ok": True, "app": "farol", "db": str(db.db_path())})
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_error(request: Request, exc: StarletteHTTPException) -> Any:
+    """Erro de rota em página, não em JSON cru — o app é para pessoas."""
+    if exc.status_code == 404:
+        return render(request, "erro.html", status_code=404, nav="", code=404,
+                      titulo="Página não encontrada",
+                      detalhe="O endereço não existe neste aplicativo.")
+    if exc.status_code == 405:
+        return render(request, "erro.html", status_code=405, nav="", code=405,
+                      titulo="Ação não permitida aqui",
+                      detalhe="Este endereço não aceita esse tipo de envio.")
+    return JSONResponse({"ok": False, "erro": exc.detail}, status_code=exc.status_code)
 
 
 # ------------------------------------------------------------------ painel

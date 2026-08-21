@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware.gzip import GZipMiddleware
 
 from . import __version__, ai, collect, db, markup, pdfs, roadmap, scoring, skills
@@ -795,7 +796,7 @@ async def resume_import_skills(request: Request, resume_id: int) -> RedirectResp
     novas = [s for s in escolhidas if s not in atuais]
     profile["skills"] = atuais + novas
     db.save_profile(profile)
-    collect.rescore()
+    await run_in_threadpool(collect.rescore)
     return go(f"/curriculos/{resume_id}",
               f"{len(novas)} skill(s) adicionada(s) ao Perfil e vagas repontuadas.")
 
@@ -903,7 +904,9 @@ async def profile_save(request: Request) -> RedirectResponse:
             "projects": projects,
         }
     )
-    updated = collect.rescore()
+    # repontuar percorre a base inteira: numa thread, para não travar o servidor
+    # enquanto roda (é o mesmo processo que serve as outras abas abertas)
+    updated = await run_in_threadpool(collect.rescore)
     return go("/perfil", f"Perfil salvo. {updated} vagas repontuadas com o novo perfil.")
 
 
@@ -936,7 +939,7 @@ async def settings_save(request: Request) -> RedirectResponse:
     # checkbox não é enviado quando desmarcado: só grava se o bloco veio no formulário
     if "notify_min_score" in form:
         db.set_setting("notify_new_jobs", "1" if form.get("notify_new_jobs") else "")
-    collect.rescore()
+    await run_in_threadpool(collect.rescore)
     return go("/ajustes", "Ajustes salvos e vagas repontuadas.")
 
 
@@ -962,7 +965,10 @@ async def settings_sources(request: Request) -> RedirectResponse:
         db.execute("DELETE FROM sources WHERE id = ? AND kind = 'rss'", (str(form.get("id")),))
         return go("/ajustes", "Feed removido.")
     if action == "testar":
-        report = collect.run([str(form.get("id"))])
+        source_id = str(form.get("id") or "")
+        if not db.one("SELECT id FROM sources WHERE id = ?", (source_id,)):
+            return go("/ajustes", "Fonte não encontrada.", "warn")
+        report = await run_in_threadpool(collect.run, [source_id])
         entry = report["sources"][0] if report["sources"] else {}
         if entry.get("status") == "ok":
             return go("/ajustes", f"{entry.get('label')}: {entry.get('found')} vagas, {entry.get('new')} novas.")

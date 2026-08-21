@@ -15,17 +15,23 @@ from __future__ import annotations
 import html
 import itertools
 import re
+from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Any
 
 import httpx
 
+from .. import USER_AGENT
 from . import arbeitnow, himalayas, remoteok, remotive, rss, weworkremotely
 
-USER_AGENT = (
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/125.0 Safari/537.36 Farol/0.1 (uso pessoal)"
-)
+__all__ = [
+    "REGISTRY",
+    "USER_AGENT",
+    "client",
+    "fetch_source",
+    "normalize",
+    "to_text",
+]
 
 REGISTRY: dict[str, Callable[[httpx.Client, str], list[dict[str, Any]]]] = {
     "remotive": remotive.fetch,

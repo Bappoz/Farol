@@ -95,3 +95,12 @@ def test_to_text_preserva_paragrafos():
     text = sources.to_text("<p>Um</p><ul><li>Dois</li><li>Três</li></ul>")
     assert text.splitlines()[0] == "Um"
     assert "Dois" in text and "Três" in text
+
+
+def test_user_agent_identifica_o_aplicativo():
+    """Sem imitar navegador: é a postura correta e o que destrava o Himalayas."""
+    with sources.client() as http:
+        agent = http.headers["User-Agent"]
+    assert agent.startswith("Farol/")
+    assert "Mozilla" not in agent
+    assert "Chrome" not in agent

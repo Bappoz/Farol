@@ -70,7 +70,7 @@ jobs:
           name: dist
           path: dist/
 
-  contêiner:
+  container:
     name: imagem Docker
     runs-on: ubuntu-latest
     steps:

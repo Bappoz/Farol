@@ -9,7 +9,7 @@ Collects remote job postings from public boards, scores each one against your
 profile, tracks your applications, builds tailored résumés and works out what to
 study next. No account, no cloud, no subscription.
 
-[![CI](https://github.com/Bappoz/Tunel/actions/workflows/ci.yml/badge.svg)](https://github.com/Bappoz/Tunel/actions/workflows/ci.yml)
+[![CI](https://github.com/Bappoz/farol/actions/workflows/ci.yml/badge.svg)](https://github.com/Bappoz/farol/actions/workflows/ci.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-informational)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
 [![Linux, macOS and Windows](https://img.shields.io/badge/platforms-Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-lightgrey)](#installation)
@@ -69,7 +69,7 @@ Requires **Python 3.10 or newer**.
 ### Linux and macOS
 
 ```bash
-git clone https://github.com/Bappoz/Tunel.git farol
+git clone https://github.com/Bappoz/farol.git
 cd farol
 ./install.sh
 ```
@@ -82,7 +82,7 @@ available in the terminal.
 ### Windows
 
 ```powershell
-git clone https://github.com/Bappoz/Tunel.git farol
+git clone https://github.com/Bappoz/farol.git
 cd farol
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
@@ -93,7 +93,7 @@ desktop shortcut as well.
 
 ### Standalone executable
 
-[Releases](https://github.com/Bappoz/Tunel/releases) carry one executable per
+[Releases](https://github.com/Bappoz/farol/releases) carry one executable per
 platform with the Python interpreter embedded. Download, extract, run.
 
 These files are not code-signed. On macOS, clear the quarantine flag with

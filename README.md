@@ -9,7 +9,7 @@ Coleta vagas remotas em portais públicos, pontua cada uma contra o seu perfil,
 acompanha as candidaturas, monta currículos direcionados e calcula o que estudar
 em seguida. Sem conta, sem nuvem, sem assinatura.
 
-[![CI](https://github.com/Bappoz/Tunel/actions/workflows/ci.yml/badge.svg)](https://github.com/Bappoz/Tunel/actions/workflows/ci.yml)
+[![CI](https://github.com/Bappoz/farol/actions/workflows/ci.yml/badge.svg)](https://github.com/Bappoz/farol/actions/workflows/ci.yml)
 [![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-informational)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
 [![Linux, macOS e Windows](https://img.shields.io/badge/sistemas-Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-lightgrey)](#instalação)
@@ -72,7 +72,7 @@ caso não esteja presente.
 ### Linux e macOS
 
 ```bash
-git clone https://github.com/Bappoz/Tunel.git farol
+git clone https://github.com/Bappoz/farol.git
 cd farol
 ./install.sh
 ```
@@ -85,7 +85,7 @@ fica disponível no terminal.
 ### Windows
 
 ```powershell
-git clone https://github.com/Bappoz/Tunel.git farol
+git clone https://github.com/Bappoz/farol.git
 cd farol
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
@@ -96,7 +96,7 @@ Iniciar e registra o comando `farol` no `PATH` do usuário. Use
 
 ### Executável único
 
-As páginas de [Releases](https://github.com/Bappoz/Tunel/releases) trazem um
+As páginas de [Releases](https://github.com/Bappoz/farol/releases) trazem um
 executável por sistema, com o interpretador Python embutido. Baixe, extraia e
 execute — não há instalação nem dependências.
 

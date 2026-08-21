@@ -39,7 +39,7 @@ vagas: pontuação, currículo e roadmap são calculados localmente.
 ## Como relatar uma vulnerabilidade
 
 Use o canal privado do GitHub:
-**Security → Report a vulnerability**, em https://github.com/Bappoz/Tunel/security.
+**Security → Report a vulnerability**, em https://github.com/Bappoz/farol/security.
 
 Não abra issue pública para falha de segurança.
 

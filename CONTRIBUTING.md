@@ -9,7 +9,7 @@ Requer Python 3.10 ou superior. O projeto usa [uv](https://docs.astral.sh/uv/)
 quando disponível e o `venv` da biblioteca padrão caso contrário.
 
 ```bash
-git clone https://github.com/Bappoz/Tunel.git farol
+git clone https://github.com/Bappoz/farol.git
 cd farol
 ./install.sh --sem-atalho      # cria .venv e instala em modo editável
 .venv/bin/python -m farol servir --reload

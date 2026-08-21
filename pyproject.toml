@@ -44,10 +44,10 @@ dev = [
 build = ["pyinstaller>=6.6"]
 
 [project.urls]
-Homepage = "https://github.com/Bappoz/Tunel"
-Repository = "https://github.com/Bappoz/Tunel"
-Issues = "https://github.com/Bappoz/Tunel/issues"
-Changelog = "https://github.com/Bappoz/Tunel/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/Bappoz/farol"
+Repository = "https://github.com/Bappoz/farol"
+Issues = "https://github.com/Bappoz/farol/issues"
+Changelog = "https://github.com/Bappoz/farol/blob/main/CHANGELOG.md"
 
 [project.scripts]
 farol = "farol.__main__:main"

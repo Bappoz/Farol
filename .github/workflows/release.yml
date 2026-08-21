@@ -99,7 +99,7 @@ jobs:
           files: entrega/*
           generate_release_notes: true
           body: |
-            Instalação e requisitos estão no [README](https://github.com/Bappoz/Tunel#instalação).
+            Instalação e requisitos estão no [README](https://github.com/Bappoz/farol#instalação).
 
             Os executáveis desta página não são assinados. No macOS, libere com
             `xattr -d com.apple.quarantine farol` antes do primeiro uso; no

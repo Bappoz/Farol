@@ -13,6 +13,7 @@ import os
 import subprocess
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -22,6 +23,10 @@ from . import db, scoring, skills, sources
 # costuma disparar CAPTCHA e bloqueio por IP. FAROL_REQUEST_DELAY=0 desliga
 # (é o que os testes fazem, já que lá não sai requisição de verdade).
 REQUEST_DELAY_SECONDS = float(os.environ.get("FAROL_REQUEST_DELAY", "1.5"))
+
+# quantos portais falam com a rede ao mesmo tempo. São servidores diferentes, e o
+# gargalo aqui é espera de rede, não CPU.
+MAX_PARALLEL_SOURCES = int(os.environ.get("FAROL_PARALLEL_SOURCES", "5"))
 
 
 def fingerprint(title: str, company: str) -> str:
@@ -122,8 +127,35 @@ def notify(jobs: list[dict[str, Any]]) -> bool:
     return True
 
 
+def _fetch_all(source: dict[str, Any], searches: list[str]) -> tuple[list[dict[str, Any]], str]:
+    """Busca uma fonte para cada termo. Devolve (itens, erro).
+
+    A pausa entre requisições vale **dentro** da fonte: é o mesmo servidor sendo
+    consultado de novo. Um feed RSS não recebe termo de busca — ele já é a
+    seleção —, então é buscado uma vez só, e não uma vez por termo.
+    """
+    queries = [""] if source.get("kind") == "rss" else searches
+    items: list[dict[str, Any]] = []
+    errors: list[str] = []
+    with sources.client() as http:
+        for index, query in enumerate(queries):
+            if index:
+                time.sleep(REQUEST_DELAY_SECONDS)
+            try:
+                items.extend(sources.fetch_source(source, query, http))
+            except Exception as exc:  # noqa: BLE001 — o erro vira diagnóstico na tela
+                errors.append(f"{type(exc).__name__}: {exc}")
+    return items, "; ".join(dict.fromkeys(errors))[:400]
+
+
 def run(source_ids: list[str] | None = None) -> dict[str, Any]:
-    """Atualiza a base de vagas. Devolve um relatório por fonte."""
+    """Atualiza a base de vagas. Devolve um relatório por fonte.
+
+    Portais diferentes são consultados em paralelo — são servidores distintos, e
+    esperar o Remotive para só então falar com o RemoteOK não protege ninguém. A
+    cortesia que importa (a pausa entre duas requisições ao **mesmo** portal)
+    continua valendo dentro de cada fonte.
+    """
     profile = db.get_profile()
     settings = db.get_settings()
     started = _utcnow().isoformat(sep=" ", timespec="seconds")
@@ -136,44 +168,47 @@ def run(source_ids: list[str] | None = None) -> dict[str, Any]:
     rows = db.query("SELECT * FROM sources WHERE enabled = 1 ORDER BY id")
     active = [dict(r) for r in rows if not source_ids or r["id"] in source_ids]
 
+    harvest: dict[str, tuple[list[dict[str, Any]], str]] = {}
+    if active:
+        with ThreadPoolExecutor(max_workers=min(len(active), MAX_PARALLEL_SOURCES)) as pool:
+            futures = {pool.submit(_fetch_all, s, searches): s["id"] for s in active}
+            for future in as_completed(futures):
+                sid = futures[future]
+                try:
+                    harvest[sid] = future.result()
+                except Exception as exc:  # noqa: BLE001 — nunca derruba a rodada inteira
+                    harvest[sid] = ([], f"{type(exc).__name__}: {exc}"[:400])
+
+    # a gravação é sequencial de propósito: uma transação, uma thread, sem disputa
+    # de escrita no SQLite
     report: list[dict[str, Any]] = []
     total_new = 0
-    first_request = True
-    with sources.client() as http:
-        for source in active:
-            found = new = 0
-            error = ""
-            for query in searches:
-                if not first_request:
-                    time.sleep(REQUEST_DELAY_SECONDS)
-                first_request = False
-                try:
-                    items = sources.fetch_source(source, query, http)
-                except Exception as exc:  # noqa: BLE001 — o erro vira diagnóstico na tela
-                    error = f"{type(exc).__name__}: {exc}"[:400]
-                    continue
-                found += len(items)
-                with db.connect() as conn:
-                    for item in items:
-                        if _upsert(conn, item, profile, settings) == "nova":
-                            new += 1
-            status = "erro" if error and not found else "ok"
-            db.execute(
+    conn = db.connect()
+    for source in active:
+        items, error = harvest.get(source["id"], ([], "fonte não executada"))
+        new = 0
+        with conn:
+            for item in items:
+                if _upsert(conn, item, profile, settings) == "nova":
+                    new += 1
+        status = "erro" if error and not items else "ok"
+        with conn:
+            conn.execute(
                 """UPDATE sources SET last_run_at = datetime('now'), last_status = ?,
                                       last_count = ?, last_error = ? WHERE id = ?""",
-                (status, found, error, source["id"]),
+                (status, len(items), error, source["id"]),
             )
-            total_new += new
-            report.append(
-                {
-                    "id": source["id"],
-                    "label": source["label"],
-                    "found": found,
-                    "new": new,
-                    "status": status,
-                    "error": error,
-                }
-            )
+        total_new += new
+        report.append(
+            {
+                "id": source["id"],
+                "label": source["label"],
+                "found": len(items),
+                "new": new,
+                "status": status,
+                "error": error,
+            }
+        )
 
     destaques: list[dict[str, Any]] = []
     if total_new and settings.get("notify_new_jobs") == "1":

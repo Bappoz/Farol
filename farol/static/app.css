@@ -315,6 +315,8 @@ input:hover, select:hover, textarea:hover { border-color: var(--faint); }
 .job .actions { display: flex; gap: 6px; align-items: center; }
 
 table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
+/* tabela larga rola dentro do próprio cartão, nunca empurra a página */
+.table-wrap { overflow-x: auto; }
 table.data th {
   text-align: left; font-weight: 500; font-size: 11.5px; color: var(--faint);
   text-transform: uppercase; letter-spacing: 0.05em; padding: 8px 12px;
@@ -379,6 +381,31 @@ table.data tr:hover td { background: var(--surface-2); }
   border: 1px solid var(--border); border-radius: 4px; cursor: pointer;
 }
 .ticket-move:hover { border-color: var(--border-strong); color: var(--text); }
+
+/* ---------------------------------------------------------------- métricas */
+
+/* o funil tem uma coluna a mais que o roadmap; sem largura mínima a barra
+   some quando o cartão fica estreito */
+.gap-row.funil { gap: 8px; }
+.gap-row.funil .name { width: 104px; flex: none; }
+.gap-row.funil .meter { min-width: 44px; }
+.gap-row.funil .step { min-width: 46px; text-align: right; }
+
+/* gráfico de barras sem biblioteca: duas barras por semana, altura em % */
+.bars { display: flex; align-items: flex-end; gap: 8px; height: 132px; padding: 4px 0 0; }
+.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; height: 100%; }
+.bar-pair { flex: 1; display: flex; align-items: flex-end; gap: 2px; width: 100%; justify-content: center; }
+.bar { width: 46%; min-height: 2px; border-radius: 2px 2px 0 0; }
+.bar.enviadas, .swatch.enviadas { background: var(--accent); }
+.bar.respostas, .swatch.respostas { background: var(--good); }
+.bar-label { font-size: 10.5px; color: var(--faint); white-space: nowrap; }
+.legend { display: flex; gap: 14px; justify-content: center; margin-top: 10px; }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.swatch { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+
+.row-line { display: flex; align-items: baseline; gap: 9px; padding: 6px 0; font-size: 13px; }
+.row-line > a { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-line + .row-line { border-top: 1px solid var(--border); }
 
 /* ---------------------------------------------------------------- roadmap */
 

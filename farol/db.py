@@ -144,6 +144,11 @@ MIGRATIONS: dict[str, dict[str, str]] = {
         "kind": "TEXT NOT NULL DEFAULT 'montado'",
         "file": "TEXT NOT NULL DEFAULT ''",
     },
+    "events": {
+        # a etapa de destino em coluna própria: as métricas precisam consultar o
+        # histórico, e ler isso de volta da frase em `note` seria adivinhação
+        "to_status": "TEXT NOT NULL DEFAULT ''",
+    },
     "jobs": {
         "work_mode": "TEXT NOT NULL DEFAULT 'remoto'",
         "region": "TEXT NOT NULL DEFAULT 'outros'",
@@ -164,6 +169,21 @@ MIGRATIONS: dict[str, dict[str, str]] = {
 DERIVED_JOB_COLUMNS = {
     "work_mode", "region", "salary_min", "salary_max", "salary_currency", "skills",
 }
+
+# Rótulo exibido -> chave da etapa, para reler o histórico já gravado.
+STATUS_BY_LABEL = {label: key for key, label in STATUS_LABELS.items()}
+
+
+def _backfill_events(conn: sqlite3.Connection) -> int:
+    """Preenche `to_status` a partir da frase 'De → Para' já gravada em `note`."""
+    updates = []
+    for row in conn.execute("SELECT id, note FROM events WHERE kind = 'status'"):
+        _, seta, destino = (row["note"] or "").partition("→")
+        chave = STATUS_BY_LABEL.get(destino.strip())
+        if seta and chave:
+            updates.append((chave, row["id"]))
+    conn.executemany("UPDATE events SET to_status = ? WHERE id = ?", updates)
+    return len(updates)
 
 
 def _migrate(conn: sqlite3.Connection) -> set[str]:
@@ -218,6 +238,8 @@ def bootstrap() -> None:
         added = _migrate(conn)
         if any(f"jobs.{column}" in added for column in DERIVED_JOB_COLUMNS):
             _backfill_jobs(conn)
+        if "events.to_status" in added:
+            _backfill_events(conn)
         conn.execute("INSERT OR IGNORE INTO profile (id) VALUES (1)")
         for key, value in DEFAULT_SETTINGS.items():
             conn.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (key, value))

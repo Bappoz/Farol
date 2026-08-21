@@ -7,6 +7,14 @@ Versionamento conforme [SemVer](https://semver.org/lang/pt-BR/).
 
 ### Adicionado
 
+- Tela de **Métricas**: conversão entre etapas do funil, tempo mediano de cada
+  passo, ritmo semanal de envios e respostas, candidaturas paradas, retorno por
+  fonte, faixa salarial das vagas coletadas e a comparação entre o fit das vagas
+  que responderam e o das que não responderam. Todo o dado já estava gravado em
+  `events` desde a primeira versão e nunca era devolvido como informação.
+- Coluna `events.to_status`, com backfill que relê o histórico já gravado a
+  partir da frase "De → Para". Sem ela, as métricas teriam de adivinhar a etapa
+  a partir de texto livre.
 - Fonte **Vagas BR**: os murais que a comunidade brasileira mantém como issues
   do GitHub (`backend-br/vagas` e outros cinco). É a primeira fonte embutida em
   português e a primeira a trazer vaga híbrida e presencial em quantidade — o

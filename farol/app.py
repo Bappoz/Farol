@@ -19,7 +19,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
 
-from . import __version__, ai, collect, db, markup, pdfs, roadmap, scoring, skills
+from . import __version__, ai, collect, db, insights, markup, pdfs, roadmap, scoring, skills
 from . import resume as resume_mod
 
 PKG_DIR = Path(__file__).resolve().parent
@@ -375,7 +375,7 @@ def job_save(job_id: int) -> RedirectResponse:
         (job_id, row["title"], row["company"], row["apply_url"] or row["url"]),
     )
     db.execute(
-        "INSERT INTO events (application_id, kind, note) VALUES (?, 'criada', ?)",
+        "INSERT INTO events (application_id, kind, note, to_status) VALUES (?, 'criada', ?, 'salva')",
         (app_id, f"Salva a partir de {row['source']}"),
     )
     return go(f"/candidaturas/{app_id}", "Vaga adicionada ao pipeline.")
@@ -422,7 +422,11 @@ async def application_create(request: Request) -> RedirectResponse:
         (title, str(form.get("company") or "").strip(), str(form.get("url") or "").strip(),
          str(form.get("status") or "salva")),
     )
-    db.execute("INSERT INTO events (application_id, kind, note) VALUES (?, 'criada', 'Adicionada manualmente')", (app_id,))
+    db.execute(
+        "INSERT INTO events (application_id, kind, note, to_status) "
+        "VALUES (?, 'criada', 'Adicionada manualmente', ?)",
+        (app_id, str(form.get("status") or "salva")),
+    )
     return go(f"/candidaturas/{app_id}", "Candidatura criada.")
 
 
@@ -477,8 +481,10 @@ async def application_update(request: Request, app_id: int) -> RedirectResponse:
     )
     if current and current["status"] != status:
         db.execute(
-            "INSERT INTO events (application_id, kind, note) VALUES (?, 'status', ?)",
-            (app_id, f"{db.STATUS_LABELS.get(current['status'], current['status'])} → {db.STATUS_LABELS.get(status, status)}"),
+            "INSERT INTO events (application_id, kind, note, to_status) VALUES (?, 'status', ?, ?)",
+            (app_id,
+             f"{db.STATUS_LABELS.get(current['status'], current['status'])} → {db.STATUS_LABELS.get(status, status)}",
+             status),
         )
     return go(f"/candidaturas/{app_id}", "Candidatura atualizada.")
 
@@ -504,8 +510,10 @@ async def application_status(request: Request, app_id: int) -> JSONResponse:
     )
     if current["status"] != status:
         db.execute(
-            "INSERT INTO events (application_id, kind, note) VALUES (?, 'status', ?)",
-            (app_id, f"{db.STATUS_LABELS.get(current['status'])} → {db.STATUS_LABELS.get(status)}"),
+            "INSERT INTO events (application_id, kind, note, to_status) VALUES (?, 'status', ?, ?)",
+            (app_id,
+             f"{db.STATUS_LABELS.get(current['status'])} → {db.STATUS_LABELS.get(status)}",
+             status),
         )
     return JSONResponse({"ok": True})
 
@@ -838,6 +846,14 @@ async def resume_import_skills(request: Request, resume_id: int) -> RedirectResp
     await run_in_threadpool(collect.rescore)
     return go(f"/curriculos/{resume_id}",
               f"{len(novas)} skill(s) adicionada(s) ao Perfil e vagas repontuadas.")
+
+
+# ----------------------------------------------------------------- métricas
+
+
+@app.get("/metricas", response_class=HTMLResponse)
+def metrics_page(request: Request) -> HTMLResponse:
+    return render(request, "metricas.html", nav="metricas", dados=insights.summary())
 
 
 # ------------------------------------------------------------------ roadmap

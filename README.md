@@ -30,6 +30,7 @@ em seguida. Sem conta, sem nuvem, sem assinatura.
   - [Filtros da lista de vagas](#filtros-da-lista-de-vagas)
   - [Currículos](#currículos)
   - [Roadmap de estudos](#roadmap-de-estudos)
+  - [Métricas](#métricas)
 - [Fontes de vagas](#fontes-de-vagas)
 - [Política de coleta](#política-de-coleta)
 - [Assistente por inteligência artificial](#assistente-por-inteligência-artificial)
@@ -55,6 +56,7 @@ habilitado, ao assistente por inteligência artificial.
 |------|------------|
 | **Painel** | Funil de candidaturas, meta semanal, próximas ações atrasadas e as vagas de maior aderência no momento. |
 | **Vagas** | Vagas coletadas de seis portais mais os feeds RSS cadastrados, com pontuação de 0 a 100 explicada item a item e filtros combináveis. |
+| **Métricas** | Conversão entre etapas, tempo mediano de cada passo, ritmo semanal, candidaturas esquecidas, retorno por fonte e faixa salarial das vagas coletadas. |
 | **Pipeline** | Quadro das candidaturas por etapa, com histórico e próximo passo. O cartão muda de coluna por arraste ou pelo seletor de etapa, que funciona no teclado e no celular. |
 | **Currículos** | Currículo base e versões direcionadas a uma vaga, em português ou inglês, em quatro modelos de apresentação, com verificação antes do envio, carta de apresentação e geração de PDF. Também armazena PDFs prontos. |
 | **Roadmap** | Lacunas de competência calculadas sobre as vagas que as suas buscas trouxeram, com projetos e certificações recomendados. |
@@ -255,6 +257,28 @@ certificações é ordenado pelo quanto cobre essas lacunas.
 
 Itens marcados formam um quadro de acompanhamento em três estados: planejado,
 fazendo e concluído.
+
+### Métricas
+
+A tela responde à pergunta que o funil sozinho não responde: **onde a busca está
+travando**. Quarenta candidaturas sem nenhuma triagem é um problema de currículo;
+quarenta candidaturas com doze triagens e nenhuma entrevista é um problema de
+conversa técnica. São diagnósticos opostos, e sem os números não há como
+distingui-los.
+
+| Bloco | O que mostra |
+|-------|--------------|
+| **Funil** | Quantas candidaturas chegaram a cada etapa, com a conversão de uma para a seguinte. Conta a etapa mais avançada alcançada, não a atual: uma recusa após a entrevista conta na entrevista. |
+| **Ritmo** | Envios e respostas por semana, nas últimas oito. |
+| **Tempo entre etapas** | Mediana de dias de cada passo, com o tamanho da amostra ao lado. Serve para saber quando cobrar retorno. |
+| **Paradas** | Candidaturas ativas sem movimento há mais de dez dias. |
+| **O fit prevê resposta?** | Pontuação média das vagas que responderam contra as que não responderam — uma checagem da própria pontuação contra o resultado real. |
+| **Retorno por fonte** | De qual portal saem as candidaturas que avançam. |
+| **Faixa salarial** | Média das faixas publicadas nas vagas coletadas, por moeda. |
+
+Todos os números são descritivos: não há previsão, modelo nem recomendação
+automática. Percentual só aparece a partir de cinco candidaturas na amostra, e
+etapa sem dado exibe "sem dado" em vez de um número inventado.
 
 ---
 

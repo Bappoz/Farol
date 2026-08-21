@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Métricas · Farol{% endblock %}
+{% block heading %}Métricas{% endblock %}
+{% block subheading %}
+  Calculado sobre as suas {{ dados.total }} candidatura{{ '' if dados.total == 1 else 's' }} —
+  {% if dados.taxa_resposta is not none and dados.amostra_suficiente %}
+    {{ dados.taxa_resposta }}% das enviadas tiveram resposta
+  {% else %}
+    ainda sem candidaturas suficientes para percentual confiável
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+
+{% if not dados.total %}
+<div class="card"><div class="empty">
+  <b>Nenhuma candidatura ainda</b>
+  Salve uma vaga em <a href="/vagas">Vagas</a>. A partir daí cada mudança de etapa vira histórico,
+  e é desse histórico que estes números saem.
+</div></div>
+{% else %}
+
+<div class="grid c2">
+  <div class="card">
+    <div class="card-head">
+      <b>Funil</b>
+      <span class="faint small">quantas chegaram a cada etapa, não onde estão hoje</span>
+    </div>
+    <div class="card-body">
+      {% for etapa in dados.funnel %}
+      <div class="gap-row funil">
+        <span class="name">{{ etapa.label }}</span>
+        <span class="meter"><i style="width: {{ etapa.share }}%"></i></span>
+        <span class="n">{{ etapa.count }}</span>
+        <span class="step small faint nowrap">
+          {%- if etapa.step is not none %}{{ etapa.step }}%{% endif -%}
+        </span>
+      </div>
+      {% endfor %}
+      <p class="small faint" style="margin-top:10px">
+        Uma candidatura recusada depois da entrevista conta na entrevista: o funil mede o quanto
+        você avançou, não onde o processo parou.
+      </p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <b>Ritmo</b>
+      <span class="faint small">envios e respostas por semana</span>
+    </div>
+    <div class="card-body">
+      <div class="bars">
+        {% for semana in dados.semanas %}
+        <div class="bar-col" title="{{ semana.rotulo }}: {{ semana.enviadas }} enviada(s), {{ semana.respostas }} resposta(s)">
+          <div class="bar-pair">
+            <i class="bar enviadas" style="height: {{ semana.altura_enviadas }}%"></i>
+            <i class="bar respostas" style="height: {{ semana.altura_respostas }}%"></i>
+          </div>
+          <span class="bar-label">{{ semana.rotulo }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="legend small faint">
+        <span><i class="swatch enviadas"></i> enviadas</span>
+        <span><i class="swatch respostas"></i> respostas</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="grid c2" style="margin-top:14px">
+  <div class="card">
+    <div class="card-head">
+      <b>Tempo entre etapas</b>
+      <span class="faint small">mediana, para saber quando cobrar</span>
+    </div>
+    <div class="card-body">
+      <div class="table-wrap"><table class="data">
+        <tbody>
+        {% for passo in dados.duracoes %}
+        <tr>
+          <td>{{ passo.de }} → {{ passo.para }}</td>
+          <td class="nowrap" style="text-align:right">
+            {% if passo.dias is not none %}
+              <b>{{ passo.dias }}</b> dia{{ '' if passo.dias == 1 else 's' }}
+              <span class="faint small">({{ passo.amostra }})</span>
+            {% else %}
+              <span class="faint">sem dado</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table></div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <b>Paradas</b>
+      <span class="faint small">ativas sem movimento há mais de 10 dias</span>
+    </div>
+    <div class="card-body">
+      {% for item in dados.paradas %}
+      <div class="row-line">
+        <a href="/candidaturas/{{ item.id }}">{{ item.title }}</a>
+        <span class="faint small">{{ item.company or '—' }} · {{ status_labels[item.status] }}</span>
+        <span class="small nowrap" style="color: var(--warn)">{{ item.parada_ha }}d</span>
+      </div>
+      {% else %}
+      <p class="faint small">Nenhuma candidatura esquecida. Bom sinal.</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="grid c2" style="margin-top:14px">
+  <div class="card">
+    <div class="card-head">
+      <b>O fit prevê resposta?</b>
+      <span class="faint small">confere a pontuação contra o resultado real</span>
+    </div>
+    <div class="card-body">
+      {% if dados.fit.confiavel %}
+      <div class="gap-row">
+        <span class="name">Responderam</span>
+        <span class="meter"><i style="width: {{ dados.fit.responderam }}%; background: var(--good)"></i></span>
+        <span class="n">{{ dados.fit.responderam }}</span>
+      </div>
+      <div class="gap-row">
+        <span class="name">Sem resposta</span>
+        <span class="meter"><i style="width: {{ dados.fit.ignoraram }}%"></i></span>
+        <span class="n">{{ dados.fit.ignoraram }}</span>
+      </div>
+      <p class="small faint" style="margin-top:10px">
+        {% if dados.fit.responderam > dados.fit.ignoraram %}
+          As vagas que responderam tinham fit mais alto — a pontuação está apontando para o lado certo.
+        {% else %}
+          As vagas que responderam não tinham fit mais alto. Vale rever as competências do Perfil:
+          a pontuação só é boa quanto o que você declarou nela.
+        {% endif %}
+        Média de {{ dados.fit.n_responderam }} com resposta e {{ dados.fit.n_ignoraram }} sem.
+      </p>
+      {% else %}
+      <p class="faint small">
+        Ainda não dá para comparar. É preciso ter candidaturas dos dois lados — com e sem resposta —
+        para a média significar alguma coisa.
+      </p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <b>Retorno por fonte</b>
+      <span class="faint small">de onde vêm as que avançam</span>
+    </div>
+    <div class="card-body">
+      <div class="table-wrap"><table class="data">
+        <thead><tr><th>Fonte</th><th style="text-align:right">Enviadas</th><th style="text-align:right">Retorno</th></tr></thead>
+        <tbody>
+        {% for linha in dados.fontes %}
+        <tr>
+          <td>{{ linha.source }}</td>
+          <td style="text-align:right">{{ linha.enviadas }}</td>
+          <td style="text-align:right">
+            {{ linha.responderam }}{% if linha.taxa is not none %} <span class="faint small">({{ linha.taxa }}%)</span>{% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="faint small">Nenhuma candidatura ligada a uma vaga coletada.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table></div></div>
+      <p class="small faint" style="margin-top:8px">
+        O percentual só aparece a partir de cinco candidaturas na mesma fonte.
+      </p>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if dados.salarios %}
+<div class="card" style="margin-top:14px">
+  <div class="card-head">
+    <b>Faixa salarial das vagas coletadas</b>
+    <span class="faint small">média das faixas publicadas, por moeda</span>
+  </div>
+  <div class="card-body">
+    <div class="table-wrap"><table class="data">
+      <thead><tr><th>Moeda</th><th style="text-align:right">Vagas com faixa</th><th style="text-align:right">Faixa média (ano)</th></tr></thead>
+      <tbody>
+      {% for linha in dados.salarios %}
+      <tr>
+        <td>{{ currency_labels.get(linha.moeda, linha.moeda) }}</td>
+        <td style="text-align:right">{{ linha.vagas }}</td>
+        <td style="text-align:right" class="nowrap">
+          {{ '{:,}'.format(linha.min).replace(',', '.') }} – {{ '{:,}'.format(linha.max).replace(',', '.') }}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    <p class="small faint" style="margin-top:8px">
+      Só entram vagas cuja faixa o anúncio publicou e cuja moeda o app reconheceu. Não há conversão
+      de câmbio: cada moeda é uma linha, e comparar entre elas é com você.
+    </p>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

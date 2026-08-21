@@ -107,6 +107,7 @@ CREATE TABLE IF NOT EXISTS events (
     application_id INTEGER NOT NULL REFERENCES applications (id) ON DELETE CASCADE,
     kind           TEXT NOT NULL,
     note           TEXT NOT NULL DEFAULT '',
+    to_status      TEXT NOT NULL DEFAULT '',   -- etapa de destino, quando kind = 'status'
     created_at     TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

@@ -6,6 +6,8 @@ from typing import Any
 
 import httpx
 
+from .query import matches
+
 ENDPOINT = "https://www.arbeitnow.com/api/job-board-api"
 
 
@@ -17,14 +19,13 @@ def fetch(client: httpx.Client, query: str) -> list[dict[str, Any]]:
     if not isinstance(data, list):
         return []
 
-    needle = (query or "").lower().strip()
     items: list[dict[str, Any]] = []
     for job in data:
         if not isinstance(job, dict):
             continue
         title = job.get("title") or ""
         # a API não filtra por termo; filtramos aqui para não poluir a base
-        if needle and needle not in f"{title} {job.get('description', '')}".lower():
+        if not matches(query, title, job.get("description"), job.get("company_name")):
             continue
         items.append(
             {

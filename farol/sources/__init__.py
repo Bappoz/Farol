@@ -23,12 +23,15 @@ import httpx
 
 from .. import USER_AGENT
 from . import arbeitnow, himalayas, remoteok, remotive, rss, weworkremotely
+from .query import first_term, matches
 
 __all__ = [
     "REGISTRY",
     "USER_AGENT",
     "client",
     "fetch_source",
+    "first_term",
+    "matches",
     "normalize",
     "to_text",
 ]

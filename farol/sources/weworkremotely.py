@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from . import rss
+from .query import matches
 
 FEEDS = [
     "https://weworkremotely.com/categories/remote-programming-jobs.rss",
@@ -16,13 +17,12 @@ FEEDS = [
 
 
 def fetch(client: httpx.Client, query: str) -> list[dict[str, Any]]:
-    needle = (query or "").lower().strip()
     items: list[dict[str, Any]] = []
     errors: list[str] = []
     for feed in FEEDS:
         try:
             entries = rss.fetch(client, feed)
-        except Exception as exc:  # um feed fora do ar não derruba os outros
+        except Exception as exc:  # noqa: BLE001 — um feed fora do ar não derruba os outros
             errors.append(f"{feed.rsplit('/', 1)[-1]}: {exc}")
             continue
         for entry in entries:
@@ -32,7 +32,7 @@ def fetch(client: httpx.Client, query: str) -> list[dict[str, Any]]:
                 company, _, role = title.partition(":")
                 entry["company"] = company.strip()
                 entry["title"] = role.strip() or title
-            if needle and needle not in f"{entry.get('title', '')} {entry.get('description', '')}".lower():
+            if not matches(query, entry.get("title"), entry.get("description"), entry.get("company")):
                 continue
             items.append(entry)
     if not items and errors:

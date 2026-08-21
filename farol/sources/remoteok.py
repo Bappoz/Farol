@@ -6,11 +6,16 @@ from typing import Any
 
 import httpx
 
+from .query import first_term, matches
+
 ENDPOINT = "https://remoteok.com/api"
 
 
 def fetch(client: httpx.Client, query: str) -> list[dict[str, Any]]:
-    params = {"tags": query} if query else None
+    # a API aceita uma tag só: mandar "junior backend python" devolve lista vazia.
+    # Enviamos a primeira palavra e conferimos as demais no texto que voltou.
+    tag = first_term(query)
+    params = {"tags": tag} if tag else None
     response = client.get(ENDPOINT, params=params)
     response.raise_for_status()
     payload = response.json()
@@ -20,6 +25,9 @@ def fetch(client: httpx.Client, query: str) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     for job in payload:
         if not isinstance(job, dict) or "legal" in job or not job.get("position"):
+            continue
+        if not matches(query, job.get("position"), job.get("description"),
+                       job.get("company"), " ".join(job.get("tags") or [])):
             continue
         salary = ""
         low, high = job.get("salary_min"), job.get("salary_max")

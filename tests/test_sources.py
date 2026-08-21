@@ -97,6 +97,45 @@ def test_to_text_preserva_paragrafos():
     assert "Dois" in text and "Três" in text
 
 
+# ------------------------------------------------------------ termo de busca
+# Regressão: o filtro exigia a frase literal na descrição, e por isso qualquer
+# termo de mais de uma palavra devolvia lista vazia nestas fontes.
+
+
+def test_arbeitnow_casa_palavras_soltas(fixtures):
+    mapping = {"arbeitnow.com": ("arbeitnow.json", "application/json")}
+    with client_for(fixtures, mapping) as http:
+        assert len(arbeitnow.fetch(http, "analyst data")) == 1
+        assert arbeitnow.fetch(http, "data kubernetes") == []
+
+
+def test_remoteok_manda_uma_tag_e_filtra_o_resto(fixtures):
+    vistas = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        vistas.append(dict(request.url.params))
+        body = (fixtures / "remoteok.json").read_bytes()
+        return httpx.Response(200, content=body, headers={"content-type": "application/json"})
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as http:
+        items = remoteok.fetch(http, "junior frontend")
+
+    # a API do RemoteOK aceita uma tag só; o resto do termo é conferido aqui
+    assert vistas[0] == {"tags": "junior"}
+    assert len(items) == 1
+    assert items[0]["title"] == "Junior Frontend Engineer"
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as http:
+        assert remoteok.fetch(http, "junior cobol") == []
+
+
+def test_wwr_casa_palavras_soltas(fixtures):
+    with client_for(fixtures, {"weworkremotely": ("wwr.xml", "application/xml")}) as http:
+        assert weworkremotely.fetch(http, "ruby junior")
+    with client_for(fixtures, {"weworkremotely": ("wwr.xml", "application/xml")}) as http:
+        assert weworkremotely.fetch(http, "ruby cobol") == []
+
+
 def test_user_agent_identifica_o_aplicativo():
     """Sem imitar navegador: é a postura correta e o que destrava o Himalayas."""
     with sources.client() as http:

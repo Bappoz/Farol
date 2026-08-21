@@ -78,6 +78,9 @@ def render(request: Request, template: str, status_code: int = 200, **context: A
         "tone": request.query_params.get("tone", "ok"),
         "nav": context.pop("nav", ""),
         "ai_ready": bool((settings.get("anthropic_api_key") or "").strip()),
+        # entra na URL de app.css e app.js: sem isso o navegador serve o arquivo
+        # antigo do cache depois de o usuário atualizar o aplicativo
+        "version": __version__,
         "collect_state": collect.status(),
     }
     base.update(context)
@@ -118,7 +121,9 @@ def _int(value: Any, default: int = 0) -> int:
 
 @app.get("/saude")
 def health() -> JSONResponse:
-    return JSONResponse({"ok": True, "app": "farol", "db": str(db.db_path())})
+    return JSONResponse(
+        {"ok": True, "app": "farol", "version": __version__, "db": str(db.db_path())}
+    )
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -760,6 +765,7 @@ def resume_print(request: Request, resume_id: int) -> HTMLResponse:
         request,
         "resume_print.html",
         {
+            "version": __version__,
             "resume": item,
             "data": item["data"],
             "lang": item["lang"],

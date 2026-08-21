@@ -137,11 +137,11 @@ def checklist(resume: dict[str, Any]) -> list[dict[str, Any]]:
     add(bool(resume.get("email")) and PLACEHOLDER not in resume["email"], "E-mail preenchido")
     add(bool(resume.get("phone")), "Telefone ou WhatsApp", "Recrutador ainda liga.")
     add(
-        any("linkedin" in (l.get("url") or "").lower() for l in resume.get("links", [])),
+        any("linkedin" in (link.get("url") or "").lower() for link in resume.get("links", [])),
         "LinkedIn no cabeçalho",
     )
     add(
-        any("github" in (l.get("url") or "").lower() for l in resume.get("links", [])),
+        any("github" in (link.get("url") or "").lower() for link in resume.get("links", [])),
         "GitHub no cabeçalho",
         "Em vaga técnica, o link do código pesa mais que o resumo.",
     )
@@ -209,7 +209,7 @@ def cover_letter(profile: dict[str, Any], job: dict[str, Any] | None, lang: str 
 
     contato = " · ".join(
         [v for v in [profile.get("email"), profile.get("phone")] if v]
-        + [l.get("url", "") for l in (profile.get("links") or [])[:2]]
+        + [link.get("url", "") for link in (profile.get("links") or [])[:2]]
     )
 
     if lang == "en":

@@ -166,7 +166,7 @@ def score_job(job: dict[str, Any], profile: dict[str, Any], settings: dict[str, 
         text += " " + " ".join(str(t) for t in tags)
 
     required = sk.extract(text)
-    owned = [s for s in (profile.get("skills") or [])]
+    owned = list(profile.get("skills") or [])
     owned_set = set(owned)
     matched = [s for s in required if s in owned_set]
     missing = [s for s in required if s not in owned_set]

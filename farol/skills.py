@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections import Counter
-from typing import Iterable
+from collections.abc import Iterable
 
 # canônica -> apelidos aceitos (o próprio nome canônico é sempre incluído)
 TAXONOMY: dict[str, list[str]] = {
@@ -191,7 +191,7 @@ def _alias_patterns() -> list[tuple[str, re.Pattern[str]]]:
         terms = {normalize(a) for a in names if normalize(a)}
         parts = sorted((re.escape(t) for t in terms), key=len, reverse=True)
         # \b não funciona depois de "c#" ou "node.js" normalizados; usamos limites manuais
-        pattern = re.compile(r"(?<![a-z0-9])(?:%s)(?![a-z0-9])" % "|".join(parts))
+        pattern = re.compile(rf"(?<![a-z0-9])(?:{'|'.join(parts)})(?![a-z0-9])")
         patterns.append((canonical, pattern))
     return patterns
 

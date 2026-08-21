@@ -15,8 +15,8 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
-from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.concurrency import run_in_threadpool
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
 
 from . import __version__, ai, collect, db, markup, pdfs, roadmap, scoring, skills
@@ -694,7 +694,7 @@ async def resume_save(request: Request, resume_id: int) -> RedirectResponse:
 
     data["headline"] = str(form.get("headline") or "").strip()
     data["summary"] = str(form.get("summary") or "").strip()
-    data["skills"] = [s for s in form.getlist("skills")]
+    data["skills"] = list(form.getlist("skills"))
 
     def items(prefix: str, fields: tuple[str, ...]) -> list[dict[str, Any]]:
         """Lê os blocos numerados do formulário, mantendo só os marcados."""
@@ -809,7 +809,7 @@ async def resume_ai(request: Request, resume_id: int) -> RedirectResponse:
             msg = "Carta revisada pela IA."
         else:
             msg = "Ação desconhecida."
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — falha da IA vira aviso, não erro 500
         return go(f"/curriculos/{resume_id}", f"IA indisponível: {exc}", "warn")
     return go(f"/curriculos/{resume_id}", msg)
 
@@ -896,19 +896,19 @@ async def profile_save(request: Request) -> RedirectResponse:
 
     links = [
         {"label": label.strip(), "url": url.strip()}
-        for label, url in zip(form.getlist("link_label"), form.getlist("link_url"))
+        for label, url in zip(form.getlist("link_label"), form.getlist("link_url"), strict=False)
         if url.strip()
     ]
     languages = [
         {"name": name.strip(), "level": level.strip()}
-        for name, level in zip(form.getlist("lang_name"), form.getlist("lang_level"))
+        for name, level in zip(form.getlist("lang_name"), form.getlist("lang_level"), strict=False)
         if name.strip()
     ]
     education = [
         {"school": school.strip(), "course": course.strip(), "period": period.strip(), "note": note.strip()}
         for school, course, period, note in zip(
             form.getlist("edu_school"), form.getlist("edu_course"),
-            form.getlist("edu_period"), form.getlist("edu_note"),
+            form.getlist("edu_period"), form.getlist("edu_note"), strict=False
         )
         if school.strip() or course.strip()
     ]
@@ -916,7 +916,7 @@ async def profile_save(request: Request) -> RedirectResponse:
         {"role": role.strip(), "org": org.strip(), "period": period.strip(), "bullets": _bullets(bullets)}
         for role, org, period, bullets in zip(
             form.getlist("exp_role"), form.getlist("exp_org"),
-            form.getlist("exp_period"), form.getlist("exp_bullets"),
+            form.getlist("exp_period"), form.getlist("exp_bullets"), strict=False
         )
         if role.strip() or org.strip()
     ]
@@ -924,7 +924,7 @@ async def profile_save(request: Request) -> RedirectResponse:
         {"name": name.strip(), "url": url.strip(), "stack": stack.strip(), "bullets": _bullets(bullets)}
         for name, url, stack, bullets in zip(
             form.getlist("proj_name"), form.getlist("proj_url"),
-            form.getlist("proj_stack"), form.getlist("proj_bullets"),
+            form.getlist("proj_stack"), form.getlist("proj_bullets"), strict=False
         )
         if name.strip()
     ]

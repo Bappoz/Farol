@@ -1,11 +1,13 @@
 """Fluxo de ponta a ponta pelas rotas HTTP, com fontes simuladas."""
 
+import conftest
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-import conftest
-from farol import collect, db, resume as resume_mod, skills as skills_mod, sources
+from farol import collect, db, sources
+from farol import resume as resume_mod
+from farol import skills as skills_mod
 from farol.app import app
 
 
@@ -673,7 +675,7 @@ def test_idiomas_do_curriculo_sao_editaveis(client, com_vagas, perfil):
 
 def _pdf_bytes(*linhas: str) -> bytes:
     """PDF de uma página com camada de texto de verdade, montado à mão."""
-    content = "BT /F1 11 Tf 40 760 Td 14 TL\n" + "\n".join(f"({l}) Tj T*" for l in linhas) + "\nET"
+    content = "BT /F1 11 Tf 40 760 Td 14 TL\n" + "\n".join(f"({line}) Tj T*" for line in linhas) + "\nET"
     objetos = [
         "<< /Type /Catalog /Pages 2 0 R >>",
         "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
@@ -754,9 +756,9 @@ def test_upload_recusa_o_que_nao_e_pdf(client, perfil):
 
 
 def test_pdf_sem_texto_avisa_em_vez_de_fingir(client, perfil):
-    from pypdf import PdfWriter
-
     import io
+
+    from pypdf import PdfWriter
     writer = PdfWriter()
     writer.add_blank_page(width=595, height=842)
     buffer = io.BytesIO()

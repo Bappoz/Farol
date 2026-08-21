@@ -109,6 +109,15 @@ def test_arbeitnow_casa_palavras_soltas(fixtures):
         assert arbeitnow.fetch(http, "data kubernetes") == []
 
 
+def test_himalayas_casa_palavras_soltas(fixtures):
+    mapping = {"himalayas.app": ("himalayas.json", "application/json")}
+    # a vaga da fixture é "Junior Backend Developer" com Node.js na descrição
+    with client_for(fixtures, mapping) as http:
+        assert len(himalayas.fetch(http, "junior node.js")) == 1
+    with client_for(fixtures, mapping) as http:
+        assert himalayas.fetch(http, "junior cobol") == []
+
+
 def test_remoteok_manda_uma_tag_e_filtra_o_resto(fixtures):
     vistas = []
 

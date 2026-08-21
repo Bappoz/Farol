@@ -1,4 +1,10 @@
-"""Himalayas — https://himalayas.app/jobs/api (vagas 100% remotas)."""
+"""Himalayas — https://himalayas.app/jobs/api (vagas 100% remotas).
+
+A API devolve no máximo 20 vagas por chamada e ignora `limit` acima disso, então
+paginamos por `offset` até `PAGES` páginas. O User-Agent honesto do pacote é
+condição para a resposta chegar: a proteção antibot do portal devolve 403 para
+User-Agent de navegador que não executa JavaScript.
+"""
 
 from __future__ import annotations
 
@@ -6,25 +12,36 @@ from typing import Any
 
 import httpx
 
+from .query import matches
+
 ENDPOINT = "https://himalayas.app/jobs/api"
+PAGE_SIZE = 20
+PAGES = 3
 
 
-def fetch(client: httpx.Client, query: str) -> list[dict[str, Any]]:
-    response = client.get(ENDPOINT, params={"limit": 50})
+def _page(client: httpx.Client, offset: int) -> list[dict[str, Any]]:
+    response = client.get(ENDPOINT, params={"limit": PAGE_SIZE, "offset": offset})
     response.raise_for_status()
     payload = response.json()
     jobs = payload.get("jobs") if isinstance(payload, dict) else payload
-    if not isinstance(jobs, list):
-        return []
+    return jobs if isinstance(jobs, list) else []
 
-    needle = (query or "").lower().strip()
+
+def fetch(client: httpx.Client, query: str) -> list[dict[str, Any]]:
+    jobs: list[dict[str, Any]] = []
+    for page in range(PAGES):
+        batch = _page(client, page * PAGE_SIZE)
+        jobs.extend(batch)
+        if len(batch) < PAGE_SIZE:
+            break
+
     items: list[dict[str, Any]] = []
     for job in jobs:
         if not isinstance(job, dict):
             continue
         title = job.get("title") or ""
         description = job.get("description") or job.get("excerpt") or ""
-        if needle and needle not in f"{title} {description}".lower():
+        if not matches(query, title, description, job.get("companyName")):
             continue
         salary = ""
         low, high = job.get("minSalary"), job.get("maxSalary")

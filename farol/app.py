@@ -3,33 +3,44 @@
 from __future__ import annotations
 
 import json
+from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
-
-from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
+from starlette.middleware.gzip import GZipMiddleware
 
-from . import ai, collect, db, markup, pdfs, resume as resume_mod, roadmap, scoring, skills
+from . import __version__, ai, collect, db, markup, pdfs, roadmap, scoring, skills
+from . import resume as resume_mod
 
 PKG_DIR = Path(__file__).resolve().parent
 
 # vagas por página em /vagas — a lista antes cortava em 200 sem dizer que havia mais
 PAGE_SIZE = 50
 
+# colunas da listagem: `description` chega a 20 KB por vaga e não aparece na lista.
+# Trazer 50 delas era mais de um megabyte lido do disco a cada página.
+JOB_LIST_COLUMNS = """id, source, title, company, url, apply_url, location, remote, work_mode,
+                      region, salary, tags, published_at, first_seen_at, last_seen_at, score,
+                      score_data, state"""
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     db.bootstrap()
     yield
+    db.close()
 
 
-app = FastAPI(title="Farol", docs_url=None, redoc_url=None, lifespan=lifespan)
+app = FastAPI(title="Farol", version=__version__, docs_url=None, redoc_url=None, lifespan=lifespan)
+# HTML server-side comprime muito bem; abaixo de 1 KB o ganho não paga o trabalho
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 app.mount("/static", StaticFiles(directory=PKG_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=str(PKG_DIR / "templates"))
 templates.env.filters["skill"] = skills.display
@@ -102,7 +113,7 @@ def dashboard(request: Request) -> HTMLResponse:
     profile = db.get_profile()
     settings = db.get_settings()
 
-    counts = {status: 0 for status in db.STATUSES}
+    counts = dict.fromkeys(db.STATUSES, 0)
     for row in db.query("SELECT status, COUNT(*) AS n FROM applications GROUP BY status"):
         counts[row["status"]] = row["n"]
 
@@ -124,15 +135,15 @@ def dashboard(request: Request) -> HTMLResponse:
     for item in upcoming:
         item["late"] = (item["next_action_at"] or "") < today
 
-    saved_job_ids = {r["job_id"] for r in db.query("SELECT job_id FROM applications WHERE job_id IS NOT NULL")}
     top_jobs = [
         job_dict(r)
         for r in db.query(
-            """SELECT * FROM jobs WHERE state = 'novo'
-               ORDER BY score DESC, last_seen_at DESC LIMIT 12"""
+            f"""SELECT {JOB_LIST_COLUMNS} FROM jobs
+                WHERE state = 'novo'
+                  AND id NOT IN (SELECT job_id FROM applications WHERE job_id IS NOT NULL)
+                ORDER BY score DESC, last_seen_at DESC LIMIT 6"""
         )
-        if r["id"] not in saved_job_ids
-    ][:6]
+    ]
 
     total_jobs = db.one("SELECT COUNT(*) AS n FROM jobs")["n"]
     demand = roadmap.demand().most_common(8)
@@ -234,8 +245,8 @@ def jobs_list(request: Request) -> HTMLResponse:
     pages = max(1, -(-found // PAGE_SIZE))  # divisão para cima
     pagina = min(pagina, pages)
     rows = db.query(
-        f"SELECT * FROM jobs WHERE {clause} ORDER BY {order_sql} LIMIT ? OFFSET ?",
-        args + [PAGE_SIZE, (pagina - 1) * PAGE_SIZE],
+        f"SELECT {JOB_LIST_COLUMNS} FROM jobs WHERE {clause} ORDER BY {order_sql} LIMIT ? OFFSET ?",
+        [*args, PAGE_SIZE, (pagina - 1) * PAGE_SIZE],
     )
     jobs = [job_dict(r) for r in rows]
     saved = {r["job_id"]: r["id"] for r in db.query("SELECT id, job_id FROM applications WHERE job_id IS NOT NULL")}

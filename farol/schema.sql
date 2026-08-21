@@ -76,6 +76,10 @@ CREATE TABLE IF NOT EXISTS jobs (
 CREATE UNIQUE INDEX IF NOT EXISTS jobs_source_key ON jobs (source, source_id);
 CREATE INDEX IF NOT EXISTS jobs_fingerprint ON jobs (fingerprint);
 CREATE INDEX IF NOT EXISTS jobs_score ON jobs (score DESC);
+-- a listagem filtra por estado e ordena por fit; o painel pega o topo do mesmo par
+CREATE INDEX IF NOT EXISTS jobs_state_score ON jobs (state, score DESC);
+CREATE INDEX IF NOT EXISTS jobs_location ON jobs (location);
+CREATE INDEX IF NOT EXISTS jobs_recent ON jobs (published_at DESC, first_seen_at DESC);
 
 CREATE TABLE IF NOT EXISTS applications (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -96,6 +100,7 @@ CREATE TABLE IF NOT EXISTS applications (
 );
 
 CREATE INDEX IF NOT EXISTS applications_status ON applications (status, position);
+CREATE INDEX IF NOT EXISTS applications_job ON applications (job_id);
 
 CREATE TABLE IF NOT EXISTS events (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -134,3 +139,8 @@ CREATE TABLE IF NOT EXISTS learning (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS learning_ref ON learning (kind, ref);
+
+CREATE INDEX IF NOT EXISTS events_application ON events (application_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS resumes_job ON resumes (job_id);
+CREATE INDEX IF NOT EXISTS resumes_application ON resumes (application_id);
+CREATE INDEX IF NOT EXISTS resumes_updated ON resumes (updated_at DESC);

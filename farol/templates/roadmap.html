@@ -26,8 +26,11 @@
           <input type="hidden" name="kind" value="skill">
           <input type="hidden" name="ref" value="{{ gap.skill }}">
           <input type="hidden" name="title" value="Estudar {{ gap.skill | skill }}">
-          <input type="hidden" name="status" value="planejado">
-          <button class="btn btn-sm btn-quiet" title="Adicionar ao plano">{{ icon('plus', 13) }}</button>
+          <input type="hidden" name="status" value="{{ 'remover' if gap.tracked else 'planejado' }}">
+          <button class="btn btn-sm {{ 'btn-on' if gap.tracked else 'btn-quiet' }}"
+                  title="{{ 'No seu plano — clique para tirar' if gap.tracked else 'Adicionar ao plano' }}">
+            {{ icon('check', 13) if gap.tracked else icon('plus', 13) }}
+          </button>
         </form>
       </div>
       {% else %}

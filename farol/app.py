@@ -850,6 +850,10 @@ def roadmap_page(request: Request) -> HTMLResponse:
     demand = roadmap.demand()
     gaps = roadmap.gaps(profile, counter=demand)
     recommendations = roadmap.recommend(profile, counter=demand)
+    planned = {item["ref"] for item in roadmap.board()["planejado"]
+               if item["kind"] == "skill"}
+    for gap in gaps:
+        gap["tracked"] = gap["skill"] in planned
     return render(
         request,
         "roadmap.html",

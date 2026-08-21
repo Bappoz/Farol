@@ -197,6 +197,9 @@ p { margin: 0 0 10px; }
 .btn-quiet { border-color: transparent; background: transparent; color: var(--muted); }
 .btn-quiet:hover { background: var(--surface-2); }
 .btn-danger { color: var(--bad); }
+/* "já está no meu plano": o botão vira o desfazer e se parece com isso */
+.btn-on { border-color: transparent; background: var(--good-soft); color: var(--good); }
+.btn-on:hover { background: var(--good-soft); color: var(--good); opacity: 0.82; }
 .btn-sm { padding: 3px 8px; font-size: 12px; }
 .btn[disabled] { opacity: 0.45; pointer-events: none; }
 

@@ -1,0 +1,42 @@
+name: Defeito
+description: Algo não funciona como deveria
+labels: [defeito]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Antes de abrir: confira se já existe uma issue sobre o mesmo assunto.
+        Para falha de segurança, use o canal privado descrito em `SECURITY.md`.
+  - type: input
+    id: versao
+    attributes:
+      label: Versão
+      description: saída de `farol versao`
+      placeholder: farol 1.0.0
+    validations: { required: true }
+  - type: dropdown
+    id: sistema
+    attributes:
+      label: Sistema operacional
+      options: [Linux, macOS, Windows, Docker]
+    validations: { required: true }
+  - type: textarea
+    id: passos
+    attributes:
+      label: Como reproduzir
+      placeholder: |
+        1. Abrir Vagas
+        2. Filtrar por região Brasil
+        3. ...
+    validations: { required: true }
+  - type: textarea
+    id: esperado
+    attributes:
+      label: O que você esperava
+    validations: { required: true }
+  - type: textarea
+    id: obtido
+    attributes:
+      label: O que aconteceu
+      description: Em erro de servidor, cole as últimas linhas do log (o caminho aparece em `farol caminho`).
+    validations: { required: true }

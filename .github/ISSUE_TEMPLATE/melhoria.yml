@@ -1,0 +1,26 @@
+name: Melhoria
+description: Sugerir uma funcionalidade ou mudança
+labels: [melhoria]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Que problema isso resolve
+      description: Descreva a situação real, não a solução que você já imaginou.
+    validations: { required: true }
+  - type: textarea
+    id: proposta
+    attributes:
+      label: Proposta
+    validations: { required: true }
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: Alternativas consideradas
+  - type: checkboxes
+    id: escopo
+    attributes:
+      label: Escopo do projeto
+      options:
+        - label: A proposta mantém o aplicativo local, sem conta e sem serviço externo obrigatório.
+          required: true

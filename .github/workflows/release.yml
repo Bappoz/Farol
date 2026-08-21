@@ -1,0 +1,107 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  binarios:
+    name: executável ${{ matrix.alvo }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            alvo: linux-x86_64
+            artefato: farol
+          - os: macos-latest
+            alvo: macos-arm64
+            artefato: farol
+          - os: macos-13
+            alvo: macos-x86_64
+            artefato: farol
+          - os: windows-latest
+            alvo: windows-x86_64
+            artefato: farol.exe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[build]"
+      - run: pyinstaller packaging/farol.spec --noconfirm
+
+      - name: o binário abre e responde
+        shell: bash
+        run: |
+          "dist/${{ matrix.artefato }}" versao
+          "dist/${{ matrix.artefato }}" caminho
+
+      - name: empacotar
+        shell: bash
+        run: |
+          mkdir -p entrega
+          cp README.md LICENSE dist/${{ matrix.artefato }} entrega/
+          cd entrega
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            7z a "../farol-${{ matrix.alvo }}.zip" ./*
+          else
+            tar -czf "../farol-${{ matrix.alvo }}.tar.gz" ./*
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: farol-${{ matrix.alvo }}
+          path: |
+            farol-${{ matrix.alvo }}.tar.gz
+            farol-${{ matrix.alvo }}.zip
+          if-no-files-found: error
+
+  pacote-python:
+    name: pacote Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build twine
+      - run: python -m build
+      - run: twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pacote-python
+          path: dist/
+
+  publicar:
+    name: publicar release
+    needs: [binarios, pacote-python]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artefatos
+      - name: reunir arquivos
+        run: |
+          mkdir -p entrega
+          find artefatos -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.whl' \) \
+            -exec cp {} entrega/ \;
+          ls -la entrega
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: entrega/*
+          generate_release_notes: true
+          body: |
+            Instalação e requisitos estão no [README](https://github.com/Bappoz/Tunel#instalação).
+
+            Os executáveis desta página não são assinados. No macOS, libere com
+            `xattr -d com.apple.quarantine farol` antes do primeiro uso; no
+            Windows, o SmartScreen pede confirmação em "Mais informações →
+            Executar assim mesmo".

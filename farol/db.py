@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import sqlite3
+import sys
+import threading
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 PKG_DIR = Path(__file__).resolve().parent
 
@@ -46,15 +50,36 @@ DEFAULT_SETTINGS = {
 }
 
 
-def home() -> Path:
-    """Diretório de dados. Sobrescreva com FAROL_HOME (útil para testes)."""
+def _configured_home() -> Path:
     env = os.environ.get("FAROL_HOME")
     if env:
-        path = Path(env).expanduser()
-    else:
-        base = os.environ.get("XDG_DATA_HOME", "~/.local/share")
-        path = Path(base).expanduser() / "farol"
-    path.mkdir(parents=True, exist_ok=True)
+        return Path(env).expanduser()
+    if os.name == "nt":
+        base = os.environ.get("LOCALAPPDATA") or "~/AppData/Local"
+        return Path(base).expanduser() / "Farol"
+    if sys.platform == "darwin" and not os.environ.get("XDG_DATA_HOME"):
+        return Path("~/Library/Application Support/Farol").expanduser()
+    base = os.environ.get("XDG_DATA_HOME", "~/.local/share")
+    return Path(base).expanduser() / "farol"
+
+
+_local = threading.local()
+
+
+def home() -> Path:
+    """Diretório de dados, por convenção de cada sistema.
+
+    Linux/BSD  `$XDG_DATA_HOME/farol` (padrão `~/.local/share/farol`)
+    macOS      `~/Library/Application Support/Farol`
+    Windows    `%LOCALAPPDATA%\\Farol`
+
+    `FAROL_HOME` sobrescreve tudo — é o que os testes usam. O `mkdir` roda uma vez
+    por caminho, não a cada consulta.
+    """
+    path = _configured_home()
+    if getattr(_local, "home_ready", None) != path:
+        path.mkdir(parents=True, exist_ok=True)
+        _local.home_ready = path
     return path
 
 
@@ -62,11 +87,50 @@ def db_path() -> Path:
     return home() / "farol.db"
 
 
+# Ajustes de conexão. WAL deixa leitura e escrita conviverem (a coleta grava numa
+# thread enquanto a página lê noutra) e `synchronous=NORMAL` é o par recomendado:
+# seguro contra queda do processo, sem fsync a cada transação.
+PRAGMAS = (
+    "PRAGMA journal_mode = WAL",
+    "PRAGMA synchronous = NORMAL",
+    "PRAGMA foreign_keys = ON",
+    "PRAGMA busy_timeout = 15000",
+    "PRAGMA temp_store = MEMORY",
+    "PRAGMA cache_size = -16000",  # 16 MB por conexão
+)
+
+
 def connect() -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path(), timeout=15)
+    """Conexão do SQLite reaproveitada por thread.
+
+    Abrir um arquivo e reaplicar os PRAGMAs a cada consulta custava mais que a
+    própria consulta em página com dezenas delas. A conexão é guardada por thread
+    (o módulo `sqlite3` proíbe compartilhar entre threads) e invalidada quando o
+    caminho do banco muda, que é o que acontece entre testes.
+    """
+    path = db_path()
+    conn = getattr(_local, "conn", None)
+    if conn is not None:
+        if getattr(_local, "conn_path", None) == path:
+            return conn
+        close()
+    conn = sqlite3.connect(path, timeout=15)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
+    for pragma in PRAGMAS:
+        conn.execute(pragma)
+    _local.conn = conn
+    _local.conn_path = path
     return conn
+
+
+def close() -> None:
+    """Fecha a conexão desta thread. Idempotente."""
+    conn = getattr(_local, "conn", None)
+    if conn is not None:
+        with contextlib.suppress(sqlite3.Error):
+            conn.close()
+    _local.conn = None
+    _local.conn_path = None
 
 
 # Colunas acrescentadas depois que bancos já existiam. O schema usa

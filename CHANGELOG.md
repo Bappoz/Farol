@@ -7,6 +7,13 @@ Versionamento conforme [SemVer](https://semver.org/lang/pt-BR/).
 
 ### Adicionado
 
+- **Restaurar backup**, que não existia: o app exportava JSON desde a primeira
+  versão e nunca soube lê-lo de volta. O backup passa a ser um ZIP com o
+  manifesto e os PDFs de currículo enviados, porque o JSON sozinho referenciava
+  arquivos que não estavam dentro dele. A chave da API não entra no arquivo.
+- **`/agenda.ics`**: as próximas ações com data viram compromissos de dia
+  inteiro em iCalendar, com alarme na véspera. Dá para baixar ou assinar a URL
+  no calendário do celular.
 - Vaga que para de aparecer nas coletas por três semanas passa a ser marcada
   como **fora do ar**: sai da lista, do roadmap e das métricas, mas continua no
   banco. Antes a base só crescia, e o roadmap calculava demanda sobre anúncio

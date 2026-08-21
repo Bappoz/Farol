@@ -99,7 +99,15 @@
   </div>
 
   <div>
-    <div class="section-title"><h2>Próximas ações</h2></div>
+    <div class="section-title">
+      <h2>Próximas ações</h2>
+      <span class="grow"></span>
+      {% if upcoming %}
+      <a class="btn btn-sm btn-quiet" href="/agenda.ics" title="Baixar ou assinar no seu calendário">
+        {{ icon('clock', 13) }} .ics
+      </a>
+      {% endif %}
+    </div>
     <div class="card">
       <div class="card-body tight divide">
         {% for item in upcoming %}

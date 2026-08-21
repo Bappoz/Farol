@@ -300,6 +300,7 @@ input:hover, select:hover, textarea:hover { border-color: var(--faint); }
 .nowrap { white-space: nowrap; }
 .stack { display: flex; flex-direction: column; gap: 10px; }
 .divide > * + * { border-top: 1px solid var(--border); }
+.divider { height: 1px; background: var(--border); }
 
 /* ---------------------------------------------------------------- listas */
 
@@ -317,6 +318,8 @@ input:hover, select:hover, textarea:hover { border-color: var(--faint); }
 table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
 /* tabela larga rola dentro do próprio cartão, nunca empurra a página */
 .table-wrap { overflow-x: auto; }
+/* endereço de feed é longo e não tem espaço onde quebrar */
+table.data .mono, table.data .break { overflow-wrap: anywhere; }
 table.data th {
   text-align: left; font-weight: 500; font-size: 11.5px; color: var(--faint);
   text-transform: uppercase; letter-spacing: 0.05em; padding: 8px 12px;

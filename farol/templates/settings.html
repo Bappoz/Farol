@@ -10,7 +10,7 @@
     <div class="card">
       <div class="card-head"><b>Termos de busca</b><span class="faint small">cada termo é consultado em todas as fontes ativas</span></div>
       <div class="card-body">
-        <table class="data">
+        <div class="table-wrap"><table class="data">
           <tbody>
             {% for search in searches %}
             <tr>
@@ -30,7 +30,7 @@
             </tr>
             {% endfor %}
           </tbody>
-        </table>
+        </table></div>
         <form method="post" action="/ajustes/buscas" class="inline-form" style="margin-top:12px">
           <input type="hidden" name="acao" value="adicionar">
           <div class="field" style="flex:1; min-width:160px">
@@ -52,7 +52,7 @@
     <div class="card">
       <div class="card-head"><b>Fontes</b><span class="faint small">o botão “testar” roda só aquela fonte e mostra o erro cru</span></div>
       <div class="card-body tight">
-        <table class="data">
+        <div class="table-wrap"><table class="data">
           <thead><tr><th>Fonte</th><th>Última coleta</th><th>Resultado</th><th></th></tr></thead>
           <tbody>
             {% for source in sources %}
@@ -94,7 +94,7 @@
             </tr>
             {% endfor %}
           </tbody>
-        </table>
+        </table></div>
         <div style="padding:12px 14px; border-top:1px solid var(--border)">
           <form method="post" action="/ajustes/fontes" class="inline-form">
             <input type="hidden" name="acao" value="adicionar">
@@ -197,11 +197,45 @@
       <div class="card-head"><b>Dados</b></div>
       <div class="card-body">
         <p class="small muted">{{ total_jobs }} vagas · banco em <span class="mono">{{ db_path }}</span></p>
-        <form method="post" action="/ajustes/exportar">
-          <button class="btn btn-sm">Exportar backup (JSON)</button>
+        <div class="row">
+          <form method="post" action="/ajustes/backup">
+            <button class="btn btn-sm">{{ icon('save', 13) }} Backup completo (ZIP)</button>
+          </form>
+          <form method="post" action="/ajustes/exportar">
+            <button class="btn btn-sm btn-quiet">só o JSON</button>
+          </form>
+          <a class="btn btn-sm btn-quiet" href="/agenda.ics">{{ icon('clock', 13) }} Agenda (.ics)</a>
+        </div>
+        <p class="small faint" style="margin-top:8px">
+          O ZIP leva perfil, candidaturas com histórico, currículos (inclusive os PDFs enviados),
+          plano de estudo e ajustes. As vagas coletadas ficam de fora: elas se refazem sozinhas na
+          próxima coleta. A chave da API nunca entra no backup.
+        </p>
+        <p class="small faint">
+          O arquivo <span class="mono">.ics</span> traz as próximas ações com data marcada. Baixe,
+          ou assine esta URL no seu calendário para vê-la sempre atual.
+        </p>
+
+        <div class="divider" style="margin:14px 0"></div>
+
+        <form method="post" action="/ajustes/restaurar" enctype="multipart/form-data"
+              data-confirm="Restaurar substitui perfil, candidaturas, currículos e ajustes atuais pelos do arquivo. Continuar?">
+          <div class="field" style="margin:0">
+            <label for="backup">Restaurar backup</label>
+            <input type="file" id="backup" name="arquivo" accept=".zip,.json,application/zip,application/json" required>
+          </div>
+          <div class="inline-form" style="margin-top:8px">
+            <div class="field" style="margin:0; flex:1; min-width:150px">
+              <label for="confirmar">Digite SUBSTITUIR para confirmar</label>
+              <input type="text" id="confirmar" name="confirmar" placeholder="SUBSTITUIR"
+                     autocomplete="off" required>
+            </div>
+            <button class="btn btn-sm btn-danger">Restaurar</button>
+          </div>
         </form>
         <p class="small faint" style="margin-top:8px">
-          Tudo é local. Para levar para outra máquina, copie o arquivo do banco.
+          Restaurar <b>substitui</b> o que está aqui: perfil, candidaturas, histórico, currículos,
+          plano e ajustes passam a ser os do arquivo. As vagas coletadas não são tocadas.
         </p>
       </div>
     </div>

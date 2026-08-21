@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import zipfile
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -11,7 +12,13 @@ from typing import Any
 from urllib.parse import urlencode
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    Response,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
@@ -19,13 +26,32 @@ from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
 
-from . import __version__, ai, collect, db, insights, markup, pdfs, roadmap, scoring, skills
+from . import (
+    __version__,
+    agenda,
+    ai,
+    collect,
+    db,
+    insights,
+    markup,
+    pdfs,
+    roadmap,
+    scoring,
+    skills,
+)
+from . import (
+    backup as backup_mod,
+)
 from . import resume as resume_mod
 
 PKG_DIR = Path(__file__).resolve().parent
 
 # vagas por página em /vagas — a lista antes cortava em 200 sem dizer que havia mais
 PAGE_SIZE = 50
+
+# teto do arquivo de restauração: um backup real tem alguns MB, e o limite existe
+# para não engolir um upload gigante por engano
+MAX_BACKUP_BYTES = 60 * 1024 * 1024
 
 # colunas da listagem: `description` chega a 20 KB por vaga e não aparece na lista.
 # Trazer 50 delas era mais de um megabyte lido do disco a cada página.
@@ -1096,6 +1122,59 @@ async def settings_searches(request: Request) -> RedirectResponse:
         db.execute("UPDATE searches SET enabled = 1 - enabled WHERE id = ?", (search_id,))
         return go("/ajustes", "Busca atualizada.")
     return go("/ajustes", "Ação desconhecida.", "warn")
+
+
+@app.get("/agenda.ics")
+def agenda_ics(request: Request) -> Response:
+    """Próximas ações como calendário, para assinar ou baixar.
+
+    O calendário do celular pode apontar direto para esta URL: o arquivo é
+    montado a cada pedido, então quem assina vê a agenda sempre atual.
+    """
+    base = str(request.base_url).rstrip("/")
+    return Response(
+        agenda.build(base),
+        media_type="text/calendar; charset=utf-8",
+        headers={"Content-Disposition": 'inline; filename="farol-agenda.ics"'},
+    )
+
+
+@app.post("/ajustes/backup")
+def settings_backup() -> Response:
+    """Backup completo: manifesto e os PDFs de currículo, num ZIP."""
+    return Response(
+        backup_mod.archive(),
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="farol-backup.zip"'},
+    )
+
+
+@app.post("/ajustes/restaurar")
+async def settings_restore(request: Request) -> RedirectResponse:
+    """Restaura um backup. Substitui o que existe — por isso pede confirmação."""
+    form = await request.form()
+    upload = form.get("arquivo")
+    if upload is None or not getattr(upload, "filename", ""):
+        return go("/ajustes", "Escolha o arquivo de backup.", "warn")
+    if str(form.get("confirmar") or "") != "SUBSTITUIR":
+        return go("/ajustes", "Restaurar substitui os dados atuais. "
+                              "Digite SUBSTITUIR no campo ao lado para confirmar.", "warn")
+
+    content = await upload.read()  # type: ignore[union-attr]
+    if len(content) > MAX_BACKUP_BYTES:
+        return go("/ajustes", "Arquivo de backup maior que 60 MB.", "warn")
+    try:
+        dados, arquivos = backup_mod.read(content)
+        resumo = await run_in_threadpool(backup_mod.restore, dados, arquivos)
+    except (ValueError, KeyError, UnicodeDecodeError, zipfile.BadZipFile) as exc:
+        return go("/ajustes", f"Não consegui ler este backup: {exc}", "warn")
+
+    total = sum(resumo["tabelas"].values())
+    msg = f"Backup restaurado: {total} registro(s) e {resumo['arquivos']} PDF(s)."
+    if resumo["pdfs_ausentes"]:
+        msg += (f" {len(resumo['pdfs_ausentes'])} currículo(s) em PDF ficaram sem arquivo — "
+                "o backup era um JSON solto, sem os anexos.")
+    return go("/ajustes", msg)
 
 
 @app.post("/ajustes/exportar")

@@ -396,8 +396,21 @@ enviados e `server.log`. Fica **fora** da pasta do projeto de propósito: para
 atualizar o aplicativo, basta extrair a versão nova sobre a antiga — colunas
 novas são aplicadas na abertura seguinte, sem apagar nada.
 
-Ajustes → *Exportar backup* gera um JSON com perfil, candidaturas, currículos e
-roadmap. Para migrar de máquina, copie o diretório inteiro.
+**Backup e restauração.** Ajustes → *Backup completo* gera um ZIP com perfil,
+candidaturas e todo o histórico de etapas, currículos (inclusive os PDFs
+enviados), plano de estudo e ajustes. *Restaurar* lê o mesmo arquivo de volta —
+ou um JSON solto de versões anteriores — e **substitui** os dados atuais, o que
+exige digitar a confirmação.
+
+As vagas coletadas ficam de fora do backup de propósito: elas se refazem sozinhas
+na próxima coleta e ocupariam a maior parte do arquivo. A chave da API também
+nunca entra: backup que carrega credencial vira credencial espalhada.
+
+**Agenda.** `/agenda.ics` devolve as próximas ações com data marcada em formato
+iCalendar, uma tarefa de dia inteiro por candidatura, com alarme na véspera.
+Baixe o arquivo ou assine a URL no calendário do celular para vê-la sempre
+atual. Um follow-up anotado num aplicativo que só abre quando a pessoa lembra de
+abrir não lembra ninguém de nada.
 
 ---
 

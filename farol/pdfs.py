@@ -34,10 +34,14 @@ def is_pdf(content: bytes) -> bool:
 
 
 def save(resume_id: int, name: str, content: bytes) -> str:
-    """Grava o arquivo e devolve o caminho relativo ao diretório de dados."""
+    """Grava o arquivo e devolve o caminho relativo ao diretório de dados.
+
+    Sempre com `/`, mesmo no Windows: o valor vai para o banco, para dentro do
+    ZIP de backup e para a URL de download — os três esperam separador POSIX.
+    """
     target = files_dir() / f"{resume_id}-{slug(name)}.pdf"
     target.write_bytes(content)
-    return str(target.relative_to(db.home()))
+    return target.relative_to(db.home()).as_posix()
 
 
 def path_for(relative: str) -> Path | None:

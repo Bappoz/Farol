@@ -1,0 +1,19 @@
+# Farol como serviço de casa. `docker compose up -d` e pronto.
+services:
+  farol:
+    build: .
+    image: farol:latest
+    container_name: farol
+    restart: unless-stopped
+    ports:
+      # 127.0.0.1 de propósito: o Farol não tem login, e a base guarda dados
+      # pessoais. Para alcançá-lo de outra máquina, ponha um proxy com
+      # autenticação na frente em vez de abrir esta porta na rede.
+      - "127.0.0.1:7788:7788"
+    volumes:
+      - farol-dados:/dados
+    environment:
+      TZ: America/Sao_Paulo
+
+volumes:
+  farol-dados:

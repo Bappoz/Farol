@@ -4,7 +4,15 @@ import httpx
 import pytest
 
 from farol import sources
-from farol.sources import arbeitnow, himalayas, remoteok, remotive, rss, weworkremotely
+from farol.sources import (
+    arbeitnow,
+    himalayas,
+    remoteok,
+    remotive,
+    rss,
+    vagasbr,
+    weworkremotely,
+)
 
 
 def client_for(fixtures, mapping):
@@ -152,3 +160,49 @@ def test_user_agent_identifica_o_aplicativo():
     assert agent.startswith("Farol/")
     assert "Mozilla" not in agent
     assert "Chrome" not in agent
+
+
+# ----------------------------------------------------------------- vagas BR
+
+
+def _vagasbr_client(fixtures):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "api.github.com" in str(request.url):
+            body = (fixtures / "vagasbr.json").read_bytes()
+            return httpx.Response(200, content=body, headers={"content-type": "application/json"})
+        return httpx.Response(404)
+
+    return httpx.Client(transport=httpx.MockTransport(handler))
+
+
+def test_vagasbr_le_os_murais_da_comunidade(fixtures):
+    with _vagasbr_client(fixtures) as http:
+        items = vagasbr.fetch(http, "")
+    # uma requisição por mural, todas respondidas com a mesma fixture
+    assert len(items) == 4 * len(vagasbr.REPOS)
+    primeiro = sources.normalize("vagasbr", items[0])
+    assert primeiro["title"] == ".NET Backend Developer Pleno"   # colchetes fora do cargo
+    assert primeiro["company"] == "Valorei"                       # veio de "## Nossa empresa"
+    assert primeiro["location"].startswith("Brasil")
+    assert "PostgreSQL" in primeiro["tags"]
+
+
+def test_vagasbr_marca_presencial_e_empresa_do_titulo(fixtures):
+    with _vagasbr_client(fixtures) as http:
+        items = vagasbr.fetch(http, "")
+    presencial = next(i for i in items if "Python" in i["title"])
+    assert presencial["remote"] is False
+    assert "Presencial" in presencial["location"]
+    assert presencial["title"] == "Desenvolvedor Python Júnior"
+    assert presencial["company"] == "Acme Tecnologia"
+
+
+def test_vagasbr_descarta_pull_request():
+    assert vagasbr.parse_issue({"title": "x", "html_url": "u", "pull_request": {}}, "r", "a") is None
+
+
+def test_mural_da_comunidade_e_buscado_uma_vez_por_rodada():
+    """Termo escrito para portal em inglês não casa com anúncio em português."""
+    assert sources.fetches_once({"id": "vagasbr", "kind": "builtin"})
+    assert sources.fetches_once({"id": "rss-1", "kind": "rss"})
+    assert not sources.fetches_once({"id": "remotive", "kind": "builtin"})

@@ -1,0 +1,125 @@
+[
+ {
+  "title": "[Remoto] [PJ] .NET Backend Developer Pleno",
+  "html_url": "https://github.com/backend-br/vagas/issues/12391",
+  "created_at": "2026-08-19T14:37:03Z",
+  "state": "open",
+  "labels": [
+   {
+    "name": "PJ"
+   },
+   {
+    "name": "Pleno"
+   },
+   {
+    "name": ".NET"
+   },
+   {
+    "name": "Remoto"
+   },
+   {
+    "name": "AWS"
+   },
+   {
+    "name": "PostgreSQL"
+   },
+   {
+    "name": "SQL"
+   },
+   {
+    "name": "Git"
+   },
+   {
+    "name": "RabbitMQ"
+   },
+   {
+    "name": "Docker"
+   },
+   {
+    "name": "Kubernetes"
+   },
+   {
+    "name": "ASP"
+   },
+   {
+    "name": "CI/CD"
+   },
+   {
+    "name": "Azure"
+   },
+   {
+    "name": "SOLID"
+   }
+  ],
+  "body": "## Nossa empresa\nValorei\n\n## Descrição da vaga\nBuscamos .NET Backend Developer Pleno para integrar o time de uma consultoria de TI multinacional baseada em Portugal. Você trabalhará em projetos estratégicos na Europa, desenvolvendo soluções empresariais robustas e escaláveis a partir de casa. Esta é uma chance única de atuar em ambiente internacional, com fuso horário europeu (05:00 às 14:00), contribuindo com expertise em arquiteturas modernas e tecnologias de ponta.\n🎯 O que você fará no dia a dia:\n- Desenvolver e manter aplicações backend robustas utilizando .NET e C#\n- Projetar e implementar REST APIs seguindo boas práticas de arquitetura\n- Trabalhar com arquiteturas orientadas a eventos, utilizando RabbitMQ, Azure Service Bus ou Kafka\n- Otimizar e gerenciar bases de dados relacionais, desenvolvendo queries eficientes e modelos bem estruturados\n- Implementar testes unitários e de inte"
+ },
+ {
+  "title": "[100% Remoto] [PJ] Dev ServiceNow HAM (ITAM)",
+  "html_url": "https://github.com/backend-br/vagas/issues/12390",
+  "created_at": "2026-08-19T14:37:02Z",
+  "state": "open",
+  "labels": [
+   {
+    "name": "PJ"
+   },
+   {
+    "name": "Remoto"
+   }
+  ],
+  "body": "## Nossa empresa\nValorei\n\n## Descrição da vaga\nEstamos em busca de um Dev ServiceNow HAM (ITAM) para integrar um time de desenvolvimento de alta performance em um projeto desafiador de gestão avançada de ativos de hardware. Se você domina automação, integrações robustas e soluções escaláveis, e busca atuar em um ambiente colaborativo com times globais, essa oportunidade foi feita para você!\n🎯 O que você fará no dia a dia:\n- Desenvolver, configurar e personalizar o módulo ServiceNow Hardware Asset Management (HAM) conforme requisitos de negócio\n- Criar e manter scripts (Business Rules, Script Includes, UI Policies, Client Scripts, Workflows, Flow Designer) para automatizar processos e garantir integridade dos dados de ativos\n- Integrar o módulo HAM com outras soluções e sistemas externos utilizando REST APIs, SOAP, MID Server e ferramentas de integração\n- Colaborar com analistas de negóci"
+ },
+ {
+  "title": "[Remoto] [PJ] Senior Fullstack Software Engineer",
+  "html_url": "https://github.com/backend-br/vagas/issues/12389",
+  "created_at": "2026-08-19T14:37:01Z",
+  "state": "open",
+  "labels": [
+   {
+    "name": "PJ"
+   },
+   {
+    "name": "Java"
+   },
+   {
+    "name": "Remoto"
+   },
+   {
+    "name": "MongoDB"
+   },
+   {
+    "name": "PostgreSQL"
+   },
+   {
+    "name": "Git"
+   },
+   {
+    "name": "Docker"
+   },
+   {
+    "name": "Kubernetes"
+   },
+   {
+    "name": "SOLID"
+   }
+  ],
+  "body": "## Nossa empresa\nValorei\n\n## Descrição da vaga\n⚡⚫ Vem fazer parte da Valorei — Senior Fullstack Software Engineer | 100% Remoto\nVocê é uma pessoa apaixonada por dados e tecnologia? Buscamos um Senior Fullstack Software Engineer para integrar uma empresa revolucionária que está transformando o mundo de dados e informações comerciais na América Latina. Aqui, acreditamos que são as pessoas que transformam informações em insights valiosos. Se você tem experiência sólida em desenvolvimento fullstack e quer trabalhar em um ambiente ágil, inovador e em rápido crescimento, essa oportunidade é para você!\n🎯 O que você fará no dia a dia:\n- Projetar, desenvolver e manter aplicações fullstack escaláveis, confiáveis e eficientes utilizando ReactJS, NodeJS, NestJS, MongoDB e PostgreSQL\n- Garantir a confiabilidade e eficiência da infraestrutura de sistemas\n- Otimizar o desempenho das aplicações para máx"
+ },
+ {
+  "title": "[Presencial] Desenvolvedor Python Júnior na Acme (São Paulo)",
+  "html_url": "https://github.com/backend-br/vagas/issues/1",
+  "created_at": "2026-08-18T10:00:00Z",
+  "state": "open",
+  "labels": [
+   {
+    "name": "Junior"
+   },
+   {
+    "name": "Python"
+   },
+   {
+    "name": "Presencial"
+   }
+  ],
+  "body": "## Nossa empresa\nAcme Tecnologia\n\n## Descrição da vaga\nVaga presencial em São Paulo para pessoa desenvolvedora júnior com Python e PostgreSQL.\n"
+ }
+]

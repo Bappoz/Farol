@@ -31,6 +31,7 @@ BUILTIN_SOURCES = [
     ("arbeitnow", "Arbeitnow", "builtin", ""),
     ("himalayas", "Himalayas", "builtin", ""),
     ("weworkremotely", "We Work Remotely", "builtin", ""),
+    ("vagasbr", "Vagas BR (GitHub)", "builtin", ""),
 ]
 
 DEFAULT_SETTINGS = {

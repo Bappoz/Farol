@@ -22,14 +22,25 @@ from typing import Any
 import httpx
 
 from .. import USER_AGENT
-from . import arbeitnow, himalayas, remoteok, remotive, rss, weworkremotely
+from . import arbeitnow, himalayas, remoteok, remotive, rss, vagasbr, weworkremotely
 from .query import first_term, matches
+
+# Fontes que trazem a lista inteira de uma vez e filtram (ou não) por conta
+# própria: buscá-las uma vez por termo de busca só repetiria a mesma requisição.
+SINGLE_FETCH = {"vagasbr"}
+
+
+def fetches_once(source: dict[str, Any]) -> bool:
+    """A fonte deve ser consultada uma vez por rodada, e não uma por termo?"""
+    return source.get("kind") == "rss" or source.get("id") in SINGLE_FETCH
+
 
 __all__ = [
     "REGISTRY",
     "USER_AGENT",
     "client",
     "fetch_source",
+    "fetches_once",
     "first_term",
     "matches",
     "normalize",
@@ -42,6 +53,7 @@ REGISTRY: dict[str, Callable[[httpx.Client, str], list[dict[str, Any]]]] = {
     "arbeitnow": arbeitnow.fetch,
     "himalayas": himalayas.fetch,
     "weworkremotely": weworkremotely.fetch,
+    "vagasbr": vagasbr.fetch,
 }
 
 

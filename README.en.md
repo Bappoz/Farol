@@ -36,7 +36,7 @@ assistant.
 | Screen | Purpose |
 |--------|---------|
 | **Painel** (Dashboard) | Application funnel, weekly goal, overdue next actions and the highest-scoring postings right now. |
-| **Vagas** (Jobs) | Postings from five boards plus any RSS feeds you add, with a 0–100 fit score explained item by item and combinable filters. |
+| **Vagas** (Jobs) | Postings from six boards plus any RSS feeds you add, with a 0–100 fit score explained item by item and combinable filters. |
 | **Pipeline** | Kanban of applications by stage, with history and next step. Cards move by drag or by a stage selector that works on keyboard and touch. |
 | **Currículos** (Résumés) | A base résumé and versions tailored to a posting, in Portuguese or English, in four presentation templates, with a pre-send checklist, cover letter and PDF output. Also stores PDFs you already have. |
 | **Roadmap** | Skill gaps computed over the postings *your own* searches brought in, with recommended projects and certifications. |
@@ -164,9 +164,11 @@ applied on the next start, without deleting anything.
 
 ## Job sources and collection policy
 
-Five built-in sources, all public APIs or feeds requiring no key: **Remotive**,
-**RemoteOK**, **Arbeitnow**, **Himalayas** and **We Work Remotely**. Any RSS or
-Atom feed can be added from the settings screen.
+Six built-in sources, all public APIs or feeds requiring no key: **Remotive**,
+**RemoteOK**, **Arbeitnow**, **Himalayas**, **We Work Remotely** and **Vagas BR**
+— the job boards the Brazilian developer community keeps as GitHub issues, and
+the only built-in source in Portuguese. Any RSS or Atom feed can be added from
+the settings screen.
 
 Farol queries third-party servers and constrains itself accordingly:
 

@@ -131,10 +131,11 @@ def _fetch_all(source: dict[str, Any], searches: list[str]) -> tuple[list[dict[s
     """Busca uma fonte para cada termo. Devolve (itens, erro).
 
     A pausa entre requisições vale **dentro** da fonte: é o mesmo servidor sendo
-    consultado de novo. Um feed RSS não recebe termo de busca — ele já é a
-    seleção —, então é buscado uma vez só, e não uma vez por termo.
+    consultado de novo. Fonte que já é a própria seleção — um feed RSS, um mural
+    da comunidade — não recebe termo de busca e é consultada uma vez só, e não
+    uma vez por termo.
     """
-    queries = [""] if source.get("kind") == "rss" else searches
+    queries = [""] if sources.fetches_once(source) else searches
     items: list[dict[str, Any]] = []
     errors: list[str] = []
     with sources.client() as http:

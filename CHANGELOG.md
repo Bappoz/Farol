@@ -5,6 +5,14 @@ Versionamento conforme [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não publicado]
 
+### Adicionado
+
+- Fonte **Vagas BR**: os murais que a comunidade brasileira mantém como issues
+  do GitHub (`backend-br/vagas` e outros cinco). É a primeira fonte embutida em
+  português e a primeira a trazer vaga híbrida e presencial em quantidade — o
+  filtro por modelo de trabalho devolvia lista vazia porque todas as fontes
+  eram portais de trabalho remoto.
+
 ## [1.0.0] — 2026-08-20
 
 Primeira versão pública. O aplicativo passa a funcionar nos três sistemas

@@ -141,10 +141,10 @@
       {% if not total %}
         Clique em “Atualizar vagas”. Configure os termos em Ajustes.
       {% elif filters.modo in ('presencial', 'hibrido') %}
-        Nenhuma vaga {{ work_mode_labels[filters.modo] | lower }} na base. As cinco fontes embutidas
-        são portais de trabalho remoto — só a Arbeitnow publica vaga de escritório, e ainda assim
-        poucas. Para vaga {{ work_mode_labels[filters.modo] | lower }} de verdade, adicione em
-        Ajustes o feed RSS de um portal que anuncie presencial.
+        Nenhuma vaga {{ work_mode_labels[filters.modo] | lower }} na base. A maioria das fontes
+        embutidas é de portal de trabalho remoto; quem publica vaga de escritório é a Vagas BR e,
+        em menor quantidade, a Arbeitnow. Se a busca continuar vazia, adicione em Ajustes o feed
+        RSS de um portal que anuncie {{ work_mode_labels[filters.modo] | lower }}.
       {% elif filters.salario %}
         Nenhuma vaga com salário informado a partir de
         {{ currency_labels[filters.moeda] }} {{ '{:,}'.format(filters.salario).replace(',', '.') }}/ano.

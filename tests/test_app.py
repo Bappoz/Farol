@@ -55,6 +55,7 @@ def _fontes_gravadas(fixtures, monkeypatch) -> None:
         "arbeitnow.com": "arbeitnow.json",
         "himalayas.app": "himalayas.json",
         "weworkremotely.com": "wwr.xml",
+        "api.github.com": "vagasbr.json",
     }
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -113,18 +114,23 @@ def test_select_de_localizacao_lista_valores_reais_da_base(client, com_vagas):
 
 
 def test_filtro_de_modelo_de_trabalho(client, com_vagas):
-    resposta = client.get("/vagas?estado=todas&min=0&modo=presencial")
-    assert resposta.status_code == 200
-    assert "Nada por aqui" in resposta.text  # todos os fixtures são remote=true, sem marcador de híbrido
+    """Presencial só aparece desde que os murais brasileiros entraram nas fontes."""
+    presenciais = client.get("/vagas?estado=todas&min=0&modo=presencial")
+    assert presenciais.status_code == 200
+    assert "Desenvolvedor Python Júnior" in presenciais.text
 
     todos_remotos = client.get("/vagas?estado=todas&min=0&modo=remoto")
     assert "Junior Python Developer" in todos_remotos.text
+    assert "Desenvolvedor Python Júnior" not in todos_remotos.text
 
 
-def test_lista_vazia_por_modelo_explica_que_as_fontes_sao_remote_only(client, com_vagas):
+def test_lista_vazia_por_modelo_explica_o_porque(client, perfil):
     """Empty state tem de dizer o porquê, não só 'afrouxe o fit'."""
-    resposta = client.get("/vagas?estado=todas&min=0&modo=presencial")
-    assert "portais de trabalho remoto" in resposta.text
+    db.execute("INSERT INTO jobs (source, source_id, fingerprint, title, work_mode) "
+               "VALUES ('x', '1', 'f', 'Dev remoto', 'remoto')")
+    resposta = client.get("/vagas?estado=todas&min=0&modo=hibrido")
+    assert "Nada por aqui" in resposta.text
+    assert "feed" in resposta.text
 
 
 def test_filtro_de_regiao_agrupa_localizacoes(client, com_vagas):

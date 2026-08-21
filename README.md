@@ -54,7 +54,7 @@ habilitado, ao assistente por inteligência artificial.
 | Tela | Finalidade |
 |------|------------|
 | **Painel** | Funil de candidaturas, meta semanal, próximas ações atrasadas e as vagas de maior aderência no momento. |
-| **Vagas** | Vagas coletadas de cinco portais mais os feeds RSS cadastrados, com pontuação de 0 a 100 explicada item a item e filtros combináveis. |
+| **Vagas** | Vagas coletadas de seis portais mais os feeds RSS cadastrados, com pontuação de 0 a 100 explicada item a item e filtros combináveis. |
 | **Pipeline** | Quadro das candidaturas por etapa, com histórico e próximo passo. O cartão muda de coluna por arraste ou pelo seletor de etapa, que funciona no teclado e no celular. |
 | **Currículos** | Currículo base e versões direcionadas a uma vaga, em português ou inglês, em quatro modelos de apresentação, com verificação antes do envio, carta de apresentação e geração de PDF. Também armazena PDFs prontos. |
 | **Roadmap** | Lacunas de competência calculadas sobre as vagas que as suas buscas trouxeram, com projetos e certificações recomendados. |
@@ -260,8 +260,16 @@ fazendo e concluído.
 
 ## Fontes de vagas
 
-Cinco fontes embutidas, todas APIs ou feeds públicos, sem necessidade de chave:
-**Remotive**, **RemoteOK**, **Arbeitnow**, **Himalayas** e **We Work Remotely**.
+Seis fontes embutidas, todas APIs ou feeds públicos, sem necessidade de chave:
+**Remotive**, **RemoteOK**, **Arbeitnow**, **Himalayas**, **We Work Remotely** e
+**Vagas BR**.
+
+**Vagas BR** reúne os murais que a comunidade brasileira mantém no GitHub —
+`backend-br/vagas`, `frontendbr/vagas`, `react-brasil/vagas`, `androiddevbr/vagas`,
+`phpdevbr/vagas` e `datascience-br/vagas`. É a única fonte embutida em português,
+e a única que traz vaga híbrida e presencial em quantidade. Ela não recebe termo
+de busca: cada repositório já é a seleção, e filtrar anúncio em português por
+termo escrito para portal em inglês devolveria lista vazia.
 
 Um portal fora do ar ou uma API que mudou de formato não derruba a coleta: a
 fonte é marcada como erro em Ajustes, com a mensagem original, e o botão

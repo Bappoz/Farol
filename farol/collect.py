@@ -52,29 +52,33 @@ def _upsert(conn, item: dict[str, Any], profile: dict, settings: dict) -> str:
 
     result = scoring.score_job(item, profile, settings)
     salary_min, salary_max, currency = scoring.salary_range(item["salary"]) or (None, None, "")
+    # as skills do anúncio saem de graça daqui: score_job já as extraiu para
+    # comparar com o perfil. Gravadas na coluna, o roadmap não precisa reprocessar
+    # a descrição de centenas de vagas para montar a tela.
+    job_skills = list(result["matched"]) + list(result["missing"])
     payload = (
         item["title"], item["company"], item["url"], item["apply_url"], item["location"],
         item["remote"], scoring.work_mode(item), scoring.region(item), item["salary"],
-        salary_min, salary_max, currency, db.dumps(item["tags"]), item["description"],
-        item["published_at"], result["score"], db.dumps(result), fp,
+        salary_min, salary_max, currency, db.dumps(item["tags"]), db.dumps(job_skills),
+        item["description"], item["published_at"], result["score"], db.dumps(result), fp,
     )
     if existing is None:
         conn.execute(
             """INSERT INTO jobs (title, company, url, apply_url, location, remote, work_mode,
                                  region, salary, salary_min, salary_max, salary_currency, tags,
-                                 description, published_at, score, score_data, fingerprint,
+                                 skills, description, published_at, score, score_data, fingerprint,
                                  source, source_id)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            payload + (item["source"], item["source_id"]),
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (*payload, item["source"], item["source_id"]),
         )
     else:
         conn.execute(
             """UPDATE jobs SET title=?, company=?, url=?, apply_url=?, location=?, remote=?,
                                work_mode=?, region=?, salary=?, salary_min=?, salary_max=?,
-                               salary_currency=?, tags=?, description=?, published_at=?, score=?,
-                               score_data=?, fingerprint=?, last_seen_at=datetime('now')
+                               salary_currency=?, tags=?, skills=?, description=?, published_at=?,
+                               score=?, score_data=?, fingerprint=?, last_seen_at=datetime('now')
                WHERE id=?""",
-            payload + (existing["id"],),
+            (*payload, existing["id"]),
         )
     return verdict
 
@@ -278,22 +282,34 @@ def start(force: bool = False, source_ids: list[str] | None = None) -> dict[str,
 
 
 def rescore() -> int:
-    """Recalcula o fit de todas as vagas (após mudar perfil ou preferências)."""
+    """Recalcula o fit de todas as vagas (após mudar perfil ou preferências).
+
+    Uma leitura, um `executemany`, uma transação: com alguns milhares de vagas na
+    base a versão anterior fazia um UPDATE por linha dentro do laço.
+    """
     profile = db.get_profile()
     settings = db.get_settings()
-    updated = 0
-    with db.connect() as conn:
-        for row in conn.execute("SELECT * FROM jobs").fetchall():
+    conn = db.connect()
+    with conn:
+        rows = conn.execute(
+            """SELECT id, title, company, description, tags, location, salary, remote,
+                      published_at FROM jobs"""
+        ).fetchall()
+        updates = []
+        for row in rows:
             job = dict(row)
             job["tags"] = db.loads(job.get("tags"), [])
             result = scoring.score_job(job, profile, settings)
-            salary_min, salary_max, currency = scoring.salary_range(job.get("salary")) or (None, None, "")
-            conn.execute(
-                """UPDATE jobs SET score = ?, score_data = ?, work_mode = ?, region = ?,
-                                   salary_min = ?, salary_max = ?, salary_currency = ?
-                   WHERE id = ?""",
+            low, high, currency = scoring.salary_range(job.get("salary")) or (None, None, "")
+            updates.append(
                 (result["score"], db.dumps(result), scoring.work_mode(job), scoring.region(job),
-                 salary_min, salary_max, currency, job["id"]),
+                 low, high, currency,
+                 db.dumps(list(result["matched"]) + list(result["missing"])), job["id"])
             )
-            updated += 1
-    return updated
+        conn.executemany(
+            """UPDATE jobs SET score = ?, score_data = ?, work_mode = ?, region = ?,
+                               salary_min = ?, salary_max = ?, salary_currency = ?, skills = ?
+               WHERE id = ?""",
+            updates,
+        )
+    return len(updates)

@@ -11,7 +11,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from . import db, skills
+from . import db
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
@@ -29,22 +29,30 @@ def catalog_certifications() -> list[dict[str, Any]]:
 
 
 def demand(limit: int = 400) -> Counter:
-    """Frequência de skills nas vagas coletadas, priorizando as de maior fit."""
-    rows = db.query(
-        "SELECT title, description, tags FROM jobs ORDER BY score DESC, last_seen_at DESC LIMIT ?",
-        (limit,),
-    )
-    texts = []
-    for row in rows:
-        tags = " ".join(db.loads(row["tags"], []))
-        texts.append(f"{row['title']} {tags} {row['description']}")
-    return skills.count(texts)
+    """Frequência de skills nas vagas coletadas, priorizando as de maior fit.
+
+    Lê a coluna `jobs.skills`, gravada na ingestão. Reextrair aqui — passar cem
+    expressões regulares por quatrocentas descrições — custava mais de um segundo
+    por abertura do Roadmap, e o resultado era exatamente o mesmo.
+    """
+    counter: Counter = Counter()
+    for row in db.query(
+        "SELECT skills FROM jobs ORDER BY score DESC, last_seen_at DESC LIMIT ?", (limit,)
+    ):
+        counter.update(set(db.loads(row["skills"], [])))
+    return counter
 
 
-def gaps(profile: dict[str, Any], top: int = 18) -> list[dict[str, Any]]:
+def sample_size(limit: int = 400) -> int:
+    """Quantas vagas entraram no cálculo de demanda — o denominador de `share`."""
+    row = db.one("SELECT MIN(COUNT(*), ?) AS n FROM jobs", (limit,))
+    return max(1, row["n"] if row else 1)
+
+
+def gaps(profile: dict[str, Any], top: int = 18, counter: Counter | None = None) -> list[dict[str, Any]]:
     """Skills mais pedidas que você ainda não tem, com o quanto aparecem."""
-    counter = demand()
-    total = max(1, sum(1 for _ in db.query("SELECT 1 FROM jobs LIMIT 400")))
+    counter = demand() if counter is None else counter
+    total = sample_size()
     owned = set(profile.get("skills") or [])
     result = []
     for skill, count in counter.most_common():
@@ -62,9 +70,9 @@ def gaps(profile: dict[str, Any], top: int = 18) -> list[dict[str, Any]]:
     return result
 
 
-def strengths(profile: dict[str, Any], top: int = 12) -> list[dict[str, Any]]:
+def strengths(profile: dict[str, Any], top: int = 12, counter: Counter | None = None) -> list[dict[str, Any]]:
     """Suas skills que mais aparecem nas vagas — o que destacar no currículo."""
-    counter = demand()
+    counter = demand() if counter is None else counter
     owned = profile.get("skills") or []
     ranked = [
         {"skill": s, "count": counter.get(s, 0)}
@@ -79,10 +87,10 @@ def _tracked() -> dict[str, dict[str, Any]]:
     return {f"{r['kind']}:{r['ref']}": dict(r) for r in rows}
 
 
-def recommend(profile: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+def recommend(profile: dict[str, Any], counter: Counter | None = None) -> dict[str, list[dict[str, Any]]]:
     """Projetos e certificações ordenados pelo quanto cobrem seus gaps."""
     area = profile.get("area") or "backend"
-    gap_names = {g["skill"]: g["count"] for g in gaps(profile, top=40)}
+    gap_names = {g["skill"]: g["count"] for g in gaps(profile, top=40, counter=counter)}
     tracked = _tracked()
 
     def rank(item: dict[str, Any], kind: str) -> dict[str, Any]:

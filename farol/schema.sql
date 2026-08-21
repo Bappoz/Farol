@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     salary_max      INTEGER,
     salary_currency TEXT NOT NULL DEFAULT '',       -- USD | EUR | GBP | BRL | '' quando indefinida
     tags          TEXT NOT NULL DEFAULT '[]',
+    skills        TEXT NOT NULL DEFAULT '[]',      -- canônicas, extraídas na ingestão (farol.skills)
     description   TEXT NOT NULL DEFAULT '',
     published_at  TEXT,
     first_seen_at TEXT NOT NULL DEFAULT (datetime('now')),

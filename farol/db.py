@@ -149,6 +149,10 @@ MIGRATIONS: dict[str, dict[str, str]] = {
         "salary_min": "INTEGER",
         "salary_max": "INTEGER",
         "salary_currency": "TEXT NOT NULL DEFAULT ''",
+        # skills extraídas do anúncio, gravadas na ingestão: o roadmap lê esta
+        # coluna em vez de reprocessar a descrição de centenas de vagas a cada
+        # abertura da tela (ver farol.roadmap.demand)
+        "skills": "TEXT NOT NULL DEFAULT '[]'",
     },
 }
 
@@ -156,7 +160,9 @@ MIGRATIONS: dict[str, dict[str, str]] = {
 # valor final (marcaria toda vaga já existente como remota, e aí o filtro de
 # presencial/híbrido devolveria lista vazia). Quando uma delas nasce, recalculamos
 # a partir das linhas que já estão no banco.
-DERIVED_JOB_COLUMNS = {"work_mode", "region", "salary_min", "salary_max", "salary_currency"}
+DERIVED_JOB_COLUMNS = {
+    "work_mode", "region", "salary_min", "salary_max", "salary_currency", "skills",
+}
 
 
 def _migrate(conn: sqlite3.Connection) -> set[str]:
@@ -175,19 +181,32 @@ def _migrate(conn: sqlite3.Connection) -> set[str]:
 
 def _backfill_jobs(conn: sqlite3.Connection) -> int:
     """Recalcula as colunas derivadas das vagas já gravadas. Devolve quantas mudaram."""
-    from . import scoring  # local: evita acoplar db a scoring no import time
+    from . import scoring, skills  # local: evita acoplar db a scoring no import time
 
-    updated = 0
+    updates = []
     for row in conn.execute("SELECT * FROM jobs").fetchall():
         job = dict(row)
         low, high, currency = scoring.salary_range(job.get("salary")) or (None, None, "")
-        conn.execute(
-            """UPDATE jobs SET work_mode = ?, region = ?, salary_min = ?, salary_max = ?,
-                               salary_currency = ? WHERE id = ?""",
-            (scoring.work_mode(job), scoring.region(job), low, high, currency, job["id"]),
+        updates.append(
+            (scoring.work_mode(job), scoring.region(job), low, high, currency,
+             dumps(skills.extract(job_text(job))), job["id"])
         )
-        updated += 1
-    return updated
+    conn.executemany(
+        """UPDATE jobs SET work_mode = ?, region = ?, salary_min = ?, salary_max = ?,
+                           salary_currency = ?, skills = ? WHERE id = ?""",
+        updates,
+    )
+    return len(updates)
+
+
+def job_text(job: dict[str, Any]) -> str:
+    """Texto único da vaga para extrair skills — título, tags e descrição."""
+    tags = job.get("tags") or []
+    if isinstance(tags, str):
+        tags = loads(tags, [])
+    return " ".join(
+        [str(job.get("title") or ""), " ".join(str(t) for t in tags), str(job.get("description") or "")]
+    )
 
 
 def bootstrap() -> None:

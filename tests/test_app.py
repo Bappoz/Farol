@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import conftest
-from farol import collect, db, resume as resume_mod, sources
+from farol import collect, db, resume as resume_mod, skills as skills_mod, sources
 from farol.app import app
 
 
@@ -784,3 +784,29 @@ def test_editor_nao_mexe_em_pdf_enviado(client, perfil):
         assert client.post(rota, data={"acao": "resumo"}, follow_redirects=False).status_code == 303
     assert client.get(f"/curriculos/{resume_id}/imprimir", follow_redirects=False).status_code == 303
     assert db.one("SELECT kind, data FROM resumes WHERE id = ?", (resume_id,))["data"] == "{}"
+
+
+# ------------------------------------------------- skills gravadas na vaga
+
+
+def test_skills_da_vaga_sao_gravadas_na_ingestao(com_vagas):
+    """O Roadmap lê esta coluna em vez de reprocessar a descrição de cada vaga."""
+    row = db.one("SELECT skills, description FROM jobs WHERE skills <> '[]' LIMIT 1")
+    assert row is not None
+    gravadas = db.loads(row["skills"], [])
+    assert gravadas
+    assert set(gravadas) <= set(skills_mod.TAXONOMY)
+
+
+def test_repontuar_atualiza_as_skills_gravadas(com_vagas):
+    db.execute("UPDATE jobs SET skills = '[]'")
+    collect.rescore()
+    assert db.one("SELECT COUNT(*) AS n FROM jobs WHERE skills <> '[]'")["n"] > 0
+
+
+def test_demanda_do_roadmap_sai_da_coluna_gravada(com_vagas):
+    from farol import roadmap
+
+    assert roadmap.demand()
+    db.execute("UPDATE jobs SET skills = '[]'")
+    assert roadmap.demand() == {}

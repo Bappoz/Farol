@@ -795,8 +795,10 @@ async def resume_import_skills(request: Request, resume_id: int) -> RedirectResp
 @app.get("/roadmap", response_class=HTMLResponse)
 def roadmap_page(request: Request) -> HTMLResponse:
     profile = db.get_profile()
-    gaps = roadmap.gaps(profile)
-    recommendations = roadmap.recommend(profile)
+    # uma leitura da demanda serve às três seções da tela
+    demand = roadmap.demand()
+    gaps = roadmap.gaps(profile, counter=demand)
+    recommendations = roadmap.recommend(profile, counter=demand)
     return render(
         request,
         "roadmap.html",
@@ -804,7 +806,7 @@ def roadmap_page(request: Request) -> HTMLResponse:
         profile=profile,
         gaps=gaps,
         max_gap=max([g["count"] for g in gaps], default=1),
-        strengths=roadmap.strengths(profile),
+        strengths=roadmap.strengths(profile, counter=demand),
         projects=recommendations["projects"][:8],
         certifications=recommendations["certifications"][:8],
         board=roadmap.board(),

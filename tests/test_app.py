@@ -791,7 +791,25 @@ def test_editor_nao_mexe_em_pdf_enviado(client, perfil):
                  f"/curriculos/{resume_id}/ia"):
         assert client.post(rota, data={"acao": "resumo"}, follow_redirects=False).status_code == 303
     assert client.get(f"/curriculos/{resume_id}/imprimir", follow_redirects=False).status_code == 303
+    assert client.get(f"/curriculos/{resume_id}/preview", follow_redirects=False).status_code == 303
     assert db.one("SELECT kind, data FROM resumes WHERE id = ?", (resume_id,))["data"] == "{}"
+
+
+def test_preview_e_a_mesma_folha_sem_a_barra_de_acoes(client, com_vagas, perfil):
+    """O iframe da edição carrega esta rota: mesmo documento, sem os botões."""
+    criar = client.post("/curriculos", data={"name": "CV"}, follow_redirects=False)
+    resume_id = int(criar.headers["location"].split("/curriculos/")[1].split("?")[0])
+
+    impresso = client.get(f"/curriculos/{resume_id}/imprimir").text
+    preview = client.get(f"/curriculos/{resume_id}/preview").text
+
+    assert "Ana Ribeiro" in preview
+    assert 'class="sheet' in preview
+    assert "print-bar" in impresso and "print-bar" not in preview
+    assert 'class="embed"' in preview
+
+    editor = client.get(f"/curriculos/{resume_id}").text
+    assert f"/curriculos/{resume_id}/preview" in editor
 
 
 # ------------------------------------------------------ entrada malformada
@@ -903,3 +921,74 @@ def test_demanda_do_roadmap_sai_da_coluna_gravada(com_vagas):
     assert roadmap.demand()
     db.execute("UPDATE jobs SET skills = '[]'")
     assert roadmap.demand() == {}
+
+
+# ------------------------------------------------------------- layout servido
+# Regras que não têm como falhar de forma barulhenta: o layout continua
+# "funcionando", só quebra a página em silêncio. Ficam travadas aqui.
+
+
+def test_toda_tabela_larga_rola_dentro_do_cartao():
+    """`table.data` fora de `.table-wrap` empurra a página inteira na horizontal.
+
+    Aconteceu no Roadmap e na lista de currículos: a folha de estilo já previa o
+    contêiner de rolagem, mas dois templates não o usavam.
+    """
+    from pathlib import Path
+
+    from farol.app import PKG_DIR
+
+    faltando = [
+        caminho.name
+        for caminho in sorted(Path(PKG_DIR / "templates").glob("*.html"))
+        for texto in [caminho.read_text(encoding="utf-8")]
+        if '<table class="data">' in texto
+        and texto.count('<div class="table-wrap"><table class="data">') != texto.count('<table class="data">')
+    ]
+    assert not faltando, f"tabela sem .table-wrap em: {faltando}"
+
+
+def test_url_dos_estaticos_muda_quando_o_arquivo_muda(client):
+    """Sem isso o navegador serve o CSS antigo do cache depois de um `farol update`."""
+    from farol import __version__
+    from farol.app import ASSETS_VERSION
+
+    assert ASSETS_VERSION.startswith(__version__)
+    assert __version__ != ASSETS_VERSION  # a versão sozinha não invalida nada
+
+    html = client.get("/").text
+    assert f"/static/app.css?v={ASSETS_VERSION}" in html
+    assert f"/static/app.js?v={ASSETS_VERSION}" in html
+
+
+def test_pipeline_usa_a_tela_toda_e_declara_o_numero_de_colunas(client):
+    """O quadro divide a largura entre as etapas; o CSS precisa saber quantas são."""
+    html = client.get("/pipeline").text
+    assert 'class="content wide"' in html
+    assert f"--cols: {len(db.STATUSES)}" in html
+
+
+def test_paginas_fecham_todas_as_divs(client, com_vagas, perfil):
+    """`</div>` sobrando fecha o grid cedo e joga o cartão seguinte para fora dele.
+
+    Foi o que acontecia em Métricas: "Paradas" saía da grade de duas colunas e
+    ia para a largura inteira, deixando meia tela vazia ao lado do cartão irmão.
+    O navegador não reclama — ele conserta o HTML e mostra o layout errado.
+    """
+    db.execute(
+        """INSERT INTO applications (job_id, title, company, status, next_action)
+           VALUES (NULL, 'Vaga manual', 'Empresa', 'salva', 'Enviar')"""
+    )
+    criar = client.post("/curriculos", data={"name": "CV"}, follow_redirects=False)
+    resume_id = int(criar.headers["location"].split("/curriculos/")[1].split("?")[0])
+    app_id = db.one("SELECT id FROM applications LIMIT 1")["id"]
+
+    rotas = ["/", "/vagas", "/pipeline", "/curriculos", "/metricas", "/roadmap",
+             "/perfil", "/ajustes", f"/candidaturas/{app_id}", f"/curriculos/{resume_id}"]
+    desbalanceadas = {
+        rota: (html.count("<div"), html.count("</div>"))
+        for rota in rotas
+        for html in [client.get(rota).text]
+        if html.count("<div") != html.count("</div>")
+    }
+    assert not desbalanceadas, f"<div> sem fechamento par: {desbalanceadas}"

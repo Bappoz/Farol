@@ -251,6 +251,28 @@
 
   <div>
     <div class="card">
+      <div class="card-head">
+        <b>Pré-visualização</b>
+        <div class="grow"></div>
+        <a class="btn btn-sm" href="/curriculos/{{ resume.id }}/imprimir" target="_blank" rel="noopener">
+          {{ icon('olho') }} Tamanho real
+        </a>
+      </div>
+      <div class="card-body tight">
+        <div class="pdf-preview">
+          <iframe src="/curriculos/{{ resume.id }}/preview" title="Pré-visualização do currículo {{ resume.name }}"
+                  loading="lazy" scrolling="no"></iframe>
+        </div>
+      </div>
+      <div class="card-body" style="padding-top:10px">
+        <p class="small faint" style="margin:0">
+          É a folha do PDF em tamanho A4, com as mesmas margens da impressão. Ela mostra o que já está salvo —
+          salve o currículo para ver as edições aqui.
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="card-head"><b>Checagem antes de enviar</b></div>
       <div class="card-body">
         <ul class="checklist">

@@ -22,7 +22,17 @@
   --shadow: 0 1px 2px rgba(20, 18, 14, 0.06), 0 8px 24px rgba(20, 18, 14, 0.06);
   --mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", "Fira Code", monospace;
   --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Inter", sans-serif;
+
+  /* Medidas do layout. A barra lateral é uma variável porque recolhê-la muda a
+     largura útil de tudo à direita — cabeçalho, conteúdo e quadro do pipeline. */
+  --nav-w: 216px;
+  --gutter: 28px;
+  --content-max: 1180px;
+  /* telas de leitura têm limite de linha; quadro e tabela aproveitam a tela toda */
+  --content-max-wide: 1720px;
 }
+
+:root[data-nav="closed"] { --nav-w: 58px; }
 
 @media (prefers-color-scheme: dark) {
   :root {
@@ -91,11 +101,16 @@ p { margin: 0 0 10px; }
 
 /* ---------------------------------------------------------------- layout */
 
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+
 .shell { display: flex; min-height: 100vh; }
 
 .sidebar {
-  width: 216px;
-  flex: 0 0 216px;
+  width: var(--nav-w);
+  flex: 0 0 var(--nav-w);
   border-right: 1px solid var(--border);
   background: var(--surface);
   padding: 18px 12px;
@@ -105,18 +120,33 @@ p { margin: 0 0 10px; }
   position: sticky;
   top: 0;
   height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: width 0.16s ease, flex-basis 0.16s ease;
 }
 
 .brand { display: flex; align-items: center; gap: 9px; padding: 4px 8px 0; }
-.brand svg { flex: none; }
+.brand > svg { flex: none; }
 .brand b { font-size: 15px; letter-spacing: -0.02em; }
 .brand span { display: block; font-size: 11px; color: var(--faint); letter-spacing: 0.02em; }
+.brand-text { min-width: 0; overflow: hidden; }
+.brand-text b, .brand-text span { white-space: nowrap; }
+
+.nav-toggle {
+  margin-left: auto; flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; cursor: pointer;
+  color: var(--faint); background: transparent; border: 1px solid transparent;
+  border-radius: var(--radius);
+}
+.nav-toggle:hover { background: var(--surface-2); color: var(--text); }
+.nav-toggle svg { transition: transform 0.16s ease; }
 
 .menu { display: flex; flex-direction: column; gap: 1px; }
 .menu a {
   display: flex; align-items: center; gap: 9px;
   padding: 7px 9px; border-radius: var(--radius);
   color: var(--muted); text-decoration: none; font-size: 13.5px;
+  white-space: nowrap; overflow: hidden;
 }
 .menu a:hover { background: var(--surface-2); color: var(--text); }
 .menu a.on { background: var(--accent-soft); color: var(--text); font-weight: 550; }
@@ -127,15 +157,43 @@ p { margin: 0 0 10px; }
 .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding: 0 4px; }
 .side-foot .hint { font-size: 11px; color: var(--faint); line-height: 1.4; }
 
+/* Barra recolhida: só os ícones ficam, e o rótulo vira o `title` nativo. */
+:root[data-nav="closed"] .sidebar { padding-left: 8px; padding-right: 8px; }
+:root[data-nav="closed"] .brand { flex-direction: column; gap: 10px; padding: 4px 0 0; }
+:root[data-nav="closed"] .brand-text,
+:root[data-nav="closed"] .side-foot .hint,
+:root[data-nav="closed"] .menu a span,
+:root[data-nav="closed"] .side-foot .btn span { display: none; }
+:root[data-nav="closed"] .nav-toggle { margin-left: 0; }
+:root[data-nav="closed"] .nav-toggle svg { transform: rotate(180deg); }
+:root[data-nav="closed"] .menu a,
+:root[data-nav="closed"] .side-foot .btn { justify-content: center; padding-inline: 0; gap: 0; }
+
 .main { flex: 1; min-width: 0; }
 .topbar {
-  display: flex; align-items: center; gap: 12px;
-  padding: 16px 28px; border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   background: var(--surface); position: sticky; top: 0; z-index: 5;
 }
-.topbar .grow { flex: 1; }
+/* cabeçalho e conteúdo compartilham caixa: mesmo limite, mesmo respiro lateral,
+   senão o título flutua fora da coluna que ele intitula */
+.topbar-inner {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px var(--gutter);
+  max-width: var(--content-max); margin-inline: auto; width: 100%;
+}
+.topbar-inner.wide { max-width: var(--content-max-wide); }
+.topbar-inner .grow { flex: 1; min-width: 0; }
 .topbar .sub { color: var(--faint); font-size: 12.5px; margin-top: 2px; }
-.content { padding: 22px 28px 60px; max-width: 1180px; }
+
+.content {
+  padding: 22px var(--gutter) 60px;
+  max-width: var(--content-max); margin-inline: auto; width: 100%;
+  /* os blocos internos reagem à largura real que sobrou (a barra lateral muda
+     isso sem mexer no viewport), por isso container query e não media query */
+  container-type: inline-size;
+  container-name: page;
+}
+.content.wide { max-width: var(--content-max-wide); }
 
 /* ---------------------------------------------------------------- blocos */
 
@@ -144,6 +202,9 @@ p { margin: 0 0 10px; }
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
+/* formulário não ganha nada em ficar largo: o campo vira uma linha longa demais
+   para ler. `narrow` é o teto usado por eles (antes era `style=` solto no HTML) */
+.card.narrow { max-width: 720px; }
 .card + .card { margin-top: 14px; }
 .card-head {
   display: flex; align-items: center; gap: 10px;
@@ -157,18 +218,40 @@ p { margin: 0 0 10px; }
 .grid.c2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .grid.c4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.grid.side { grid-template-columns: minmax(0, 1fr) 320px; align-items: start; }
+/* a lateral acompanha a largura em vez de travar em 320px, mas nunca vira meia
+   tela: ela é apoio da coluna principal, não uma segunda coluna de leitura */
+.grid.side { grid-template-columns: minmax(0, 1fr) clamp(280px, 26%, 380px); align-items: start; }
 
-@media (max-width: 1000px) {
-  .grid.c3, .grid.c4, .grid.side { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* Os limiares são a largura da *caixa de conteúdo* do container (o padding fica
+   de fora), não a da janela — e por isso são menores que os breakpoints de
+   viewport que costumam aparecer aqui. */
+@container page (max-width: 900px) {
+  /* empilhar, não dividir ao meio: em duas colunas iguais o apoio compete com o conteúdo */
+  .grid.side { grid-template-columns: minmax(0, 1fr); }
+}
+@container page (max-width: 720px) {
+  .grid.c3, .grid.c4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container page (max-width: 460px) {
+  .grid.c2, .grid.c3, .grid.c4 { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 720px) {
+  :root { --gutter: 16px; }
   .shell { flex-direction: column; }
-  .sidebar { width: 100%; flex: none; height: auto; position: static; flex-direction: row; flex-wrap: wrap; }
-  .menu { flex-direction: row; flex-wrap: wrap; }
+  .sidebar {
+    width: 100%; flex: none; height: auto; position: static;
+    flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px;
+    padding: 10px var(--gutter);
+  }
+  .menu { flex-direction: row; flex-wrap: wrap; flex: 1; }
   .side-foot { display: none; }
-  .grid.c2, .grid.c3, .grid.c4, .grid.side { grid-template-columns: minmax(0, 1fr); }
-  .content, .topbar { padding-left: 16px; padding-right: 16px; }
+  .nav-toggle { display: none; }
+  /* na horizontal a barra já é compacta: recolher não teria o que economizar */
+  :root[data-nav="closed"] .sidebar { padding: 10px var(--gutter); }
+  :root[data-nav="closed"] .brand { flex-direction: row; padding: 0; }
+  :root[data-nav="closed"] .brand-text { display: block; }
+  :root[data-nav="closed"] .menu a { justify-content: flex-start; padding-inline: 9px; gap: 9px; }
+  :root[data-nav="closed"] .menu a span { display: inline; }
 }
 
 .stat { padding: 13px 14px; }
@@ -266,10 +349,16 @@ input:hover, select:hover, textarea:hover { border-color: var(--faint); }
 .meter i { display: block; height: 100%; background: var(--accent); }
 
 .flash {
-  margin: 14px 28px -6px; padding: 9px 12px; border-radius: var(--radius);
+  /* acompanha a caixa do conteúdo: antes ficava preso a 28px e descolava do
+     cartão que ele comenta em tela larga */
+  max-width: calc(var(--content-max) - var(--gutter) * 2);
+  width: calc(100% - var(--gutter) * 2);
+  margin: 14px auto -6px;
+  padding: 9px 12px; border-radius: var(--radius);
   background: var(--good-soft); color: var(--good); font-size: 13px;
   border: 1px solid transparent;
 }
+.flash.wide { max-width: calc(var(--content-max-wide) - var(--gutter) * 2); }
 .flash.warn { background: var(--warn-soft); color: var(--warn); }
 
 .collect {
@@ -336,7 +425,7 @@ table.data tr:hover td { background: var(--surface-2); }
 
 /* Descrição da vaga: HTML montado por farol.markup, não texto cru. */
 .desc { font-size: 13.5px; line-height: 1.6; color: var(--text); }
-.desc.clamp { max-height: 340px; overflow: auto; }
+.desc.clamp { max-height: clamp(260px, 46vh, 560px); overflow: auto; }
 .desc > :first-child { margin-top: 0; }
 .desc p { margin: 0 0 10px; }
 .desc h4 {
@@ -350,11 +439,23 @@ table.data tr:hover td { background: var(--surface-2); }
 
 /* ---------------------------------------------------------------- kanban */
 
-.board { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px; }
+/* As colunas dividem em frações iguais a largura que sobrou — recolher a barra
+   lateral alarga o cartão em vez de deixar faixa vazia à direita. O `minmax`
+   dispensa breakpoint: enquanto cabe, cada coluna é 1fr; quando não cabe mais
+   sem ficar ilegível, elas param em 178px e o quadro rola na horizontal. */
+.board {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 7), minmax(178px, 1fr));
+  gap: 12px;
+  align-items: start;
+  padding-bottom: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+}
 .col {
-  flex: 1 1 205px;
-  min-width: 178px; background: var(--surface-2); border: 1px solid var(--border);
+  min-width: 0; background: var(--surface-2); border: 1px solid var(--border);
   border-radius: var(--radius); display: flex; flex-direction: column; min-height: 140px;
+  scroll-snap-align: start;
 }
 .col > header {
   display: flex; align-items: center; gap: 6px; padding: 9px 11px;
@@ -372,7 +473,8 @@ table.data tr:hover td { background: var(--surface-2); }
 }
 .ticket:hover { border-color: var(--border-strong); color: inherit; }
 .ticket.dragging { opacity: 0.4; }
-.ticket b { display: block; font-size: 13px; font-weight: 550; }
+/* título de vaga vem do anúncio: cabe qualquer coisa, inclusive palavra sem espaço */
+.ticket b { display: block; font-size: 13px; font-weight: 550; overflow-wrap: anywhere; }
 .ticket .co { font-size: 12px; color: var(--muted); }
 .ticket .next { margin-top: 6px; font-size: 11.5px; color: var(--faint); display: flex; gap: 5px; }
 .ticket .next.late { color: var(--bad); }
@@ -395,7 +497,7 @@ table.data tr:hover td { background: var(--surface-2); }
 .gap-row.funil .step { min-width: 46px; text-align: right; }
 
 /* gráfico de barras sem biblioteca: duas barras por semana, altura em % */
-.bars { display: flex; align-items: flex-end; gap: 8px; height: 132px; padding: 4px 0 0; }
+.bars { display: flex; align-items: flex-end; gap: 8px; height: clamp(120px, 20vh, 200px); padding: 4px 0 0; }
 .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; height: 100%; }
 .bar-pair { flex: 1; display: flex; align-items: flex-end; gap: 2px; width: 100%; justify-content: center; }
 .bar { width: 46%; min-height: 2px; border-radius: 2px 2px 0 0; }
@@ -420,8 +522,9 @@ table.data tr:hover td { background: var(--surface-2); }
 .rec .signal { margin-top: 9px; font-size: 12.5px; color: var(--text); border-left: 2px solid var(--accent); padding-left: 9px; }
 
 .gap-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
-.gap-row .name { width: 150px; font-size: 13px; }
-.gap-row .meter { flex: 1; }
+/* nome encolhe com o cartão, mas nunca a ponto de a barra sumir */
+.gap-row .name { flex: 0 0 clamp(96px, 32%, 168px); min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
+.gap-row .meter { flex: 1; min-width: 40px; }
 .gap-row .n { width: 62px; text-align: right; font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
 
 /* ---------------------------------------------------------------- perfil */
@@ -444,9 +547,14 @@ table.data tr:hover td { background: var(--surface-2); }
 
 /* ---------------------------------------------------------------- impressão */
 
+/* Na tela a folha tem a proporção da página impressa (A4, com as mesmas margens
+   do @page abaixo): o que se vê aqui é o que sai no PDF, sem surpresa de quebra. */
 .sheet {
-  background: #fff; color: #16160f; max-width: 820px; margin: 22px auto;
-  padding: 46px 52px; border: 1px solid var(--border); border-radius: 3px;
+  background: #fff; color: #16160f;
+  width: 210mm; max-width: 100%; min-height: 297mm;
+  margin: 22px auto;
+  padding: 16mm 15mm; border: 1px solid var(--border); border-radius: 3px;
+  box-shadow: var(--shadow);
   font-family: "Iowan Old Style", "Charter", Georgia, serif; font-size: 12.5px; line-height: 1.5;
 }
 .sheet h1 { font-size: 21px; letter-spacing: -0.01em; }
@@ -459,6 +567,9 @@ table.data tr:hover td { background: var(--surface-2); }
 .sheet .entry .line { display: flex; justify-content: space-between; gap: 12px; }
 .sheet .entry b { font-weight: 600; }
 .sheet .entry .when { color: #6a675f; font-size: 11.5px; white-space: nowrap; }
+/* o mesmo canto guarda período ("Abr 2025 – atual", que não deve quebrar) e URL
+   de projeto, que é longa e não tem onde quebrar sozinha */
+.sheet .entry .when.url { white-space: normal; overflow-wrap: anywhere; }
 .sheet ul { margin: 4px 0 0 16px; padding: 0; }
 .sheet ul li { margin-bottom: 2px; }
 .sheet .skills-line { color: #2a2820; }
@@ -484,13 +595,39 @@ table.data tr:hover td { background: var(--surface-2); }
 }
 
 .print-bar {
-  position: sticky; top: 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  position: sticky; top: 0; z-index: 2;
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
   padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border);
 }
+
+/* Modo embutido: a mesma página servida sem a barra, para caber no iframe da
+   pré-visualização sem duplicar o template do currículo. */
+body.embed { background: var(--surface-2); }
+body.embed .sheet { margin: 0 auto; border-radius: 0; box-shadow: none; }
+
+/* Pré-visualização: o documento é renderizado no tamanho real e reduzido por
+   `transform` — o app.js calcula a escala pela largura disponível, que muda
+   quando a barra lateral recolhe. */
+.pdf-preview {
+  position: relative; overflow: hidden;
+  background: var(--surface-2); border-radius: var(--radius);
+  min-height: 120px;
+}
+.pdf-preview iframe {
+  position: absolute; top: 0; left: 0;
+  width: 210mm; border: 0;
+  transform-origin: 0 0;
+}
+.pdf-preview.ready { min-height: 0; }
+/* PDF que é arquivo do usuário: o visualizador do próprio navegador dá conta */
+.pdf-embed { width: 100%; height: clamp(360px, 62vh, 760px); border: 0; border-radius: var(--radius); }
 
 @media print {
   .print-bar { display: none; }
   body { background: #fff; }
-  .sheet { margin: 0; border: none; max-width: none; padding: 0; font-size: 11.5pt; }
+  .sheet {
+    margin: 0; border: none; box-shadow: none;
+    width: auto; max-width: none; min-height: 0; padding: 0; font-size: 11.5pt;
+  }
   @page { margin: 16mm 15mm; }
 }

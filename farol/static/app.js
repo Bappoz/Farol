@@ -16,6 +16,78 @@
   });
 })();
 
+// Barra lateral retrátil. O estado inicial já foi aplicado pelo script do <head>
+// (evita o pisca-pisca); aqui ficam só o clique e o rótulo acessível.
+(function nav() {
+  const root = document.documentElement;
+
+  function sync() {
+    const aberta = root.dataset.nav !== "closed";
+    document.querySelectorAll("[data-nav-toggle]").forEach((button) => {
+      button.setAttribute("aria-expanded", String(aberta));
+      const rotulo = aberta ? "Recolher a barra lateral" : "Expandir a barra lateral";
+      button.title = rotulo;
+      const texto = button.querySelector(".sr-only");
+      if (texto) texto.textContent = rotulo;
+    });
+  }
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("[data-nav-toggle]")) return;
+    const fechada = root.dataset.nav === "closed";
+    if (fechada) delete root.dataset.nav;
+    else root.dataset.nav = "closed";
+    try {
+      localStorage.setItem("farol-nav", fechada ? "open" : "closed");
+    } catch {
+      // sem localStorage o estado vale só para esta página; não é motivo de erro
+    }
+    sync();
+    // a largura útil mudou: quem depende dela recalcula
+    window.dispatchEvent(new Event("farol:layout"));
+  });
+
+  sync();
+})();
+
+// Pré-visualização do currículo: o documento é servido em tamanho real dentro do
+// iframe e reduzido por transform, porque `zoom` não atravessa a fronteira do
+// documento embutido. A escala depende da largura disponível, que muda quando a
+// barra lateral recolhe ou a janela é redimensionada.
+(function resumePreview() {
+  const frames = document.querySelectorAll(".pdf-preview iframe");
+  if (!frames.length) return;
+
+  function fit(frame) {
+    const box = frame.parentElement;
+    const largura = box.clientWidth;
+    if (!largura) return;
+    const real = frame.offsetWidth || 794; // 210mm
+    const escala = largura / real;
+    let altura = 1123; // 297mm, enquanto o conteúdo não carregou
+    try {
+      const corpo = frame.contentDocument && frame.contentDocument.body;
+      if (corpo) altura = Math.max(corpo.scrollHeight, corpo.offsetHeight);
+    } catch {
+      // outro documento de origem diferente: fica na altura de uma página
+    }
+    frame.style.height = `${altura}px`;
+    frame.style.transform = `scale(${escala})`;
+    box.style.height = `${Math.round(altura * escala)}px`;
+    box.classList.add("ready");
+  }
+
+  frames.forEach((frame) => {
+    const refit = () => fit(frame);
+    frame.addEventListener("load", refit);
+    if (frame.contentDocument && frame.contentDocument.readyState === "complete") refit();
+    window.addEventListener("resize", refit);
+    window.addEventListener("farol:layout", refit);
+    // a transição da barra lateral dura ~160ms; remede depois que ela termina
+    window.addEventListener("farol:layout", () => window.setTimeout(refit, 200));
+  });
+})();
+
 // Kanban: arrastar cartão entre colunas persiste o status na hora. O seletor de
 // etapa dentro do cartão faz o mesmo pelo teclado e no celular, onde arrastar
 // simplesmente não existe.

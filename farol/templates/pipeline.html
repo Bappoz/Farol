@@ -1,11 +1,13 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon %}
+{# o quadro aproveita a tela inteira: coluna estreita aqui é coluna que rola #}
+{% set wide = true %}
 {% block title %}Pipeline · Farol{% endblock %}
 {% block heading %}Pipeline{% endblock %}
 {% block subheading %}Arraste o cartão ou use o seletor de etapa — o histórico fica registrado{% endblock %}
 
 {% block content %}
-<div class="board" data-board>
+<div class="board" data-board style="--cols: {{ statuses | length }}">
   {% for status in statuses %}
   <section class="col" data-status="{{ status }}">
     <header>
@@ -39,7 +41,7 @@
   {% endfor %}
 </div>
 
-<div class="card" style="margin-top:18px; max-width:640px">
+<div class="card narrow" style="margin-top:18px">
   <div class="card-head"><b>Adicionar candidatura manualmente</b><span class="faint small">vaga que você achou fora do Farol</span></div>
   <div class="card-body">
     <form method="post" action="/candidaturas" class="inline-form">

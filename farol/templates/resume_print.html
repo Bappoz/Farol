@@ -4,10 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ data.name }} — {{ data.headline }}</title>
-  <link rel="stylesheet" href="/static/app.css?v={{ version }}">
+  <link rel="stylesheet" href="/static/app.css?v={{ assets }}">
   <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
 </head>
-<body>
+<body{% if embed %} class="embed"{% endif %}>
+{% if not embed %}
 <div class="print-bar">
   <a class="btn" href="/curriculos/{{ resume.id }}">Voltar</a>
   <button class="btn btn-primary" onclick="window.print()">Salvar como PDF</button>
@@ -15,6 +16,7 @@
   <span class="chip">{{ templates[template].label }}{% if templates[template].recommended %} · recomendado{% endif %}</span>
   <span class="small faint">No diálogo de impressão escolha “Salvar como PDF”, margens padrão, sem cabeçalho e rodapé.</span>
 </div>
+{% endif %}
 
 <article class="sheet t-{{ template }}">
   <header>
@@ -57,7 +59,7 @@
   <div class="entry">
     <div class="line">
       <span><b>{{ item.name }}</b>{% if item.stack %} — {{ item.stack }}{% endif %}</span>
-      <span class="when">{{ item.url }}</span>
+      <span class="when url">{{ item.url }}</span>
     </div>
     {% if item.bullets %}<ul>{% for bullet in item.bullets %}<li>{{ bullet }}</li>{% endfor %}</ul>{% endif %}
   </div>

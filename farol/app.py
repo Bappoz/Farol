@@ -64,6 +64,23 @@ JOB_LIST_COLUMNS = """id, source, title, company, url, apply_url, location, remo
                       score_data, state"""
 
 
+def _assets_version() -> str:
+    """Sufixo de cache do CSS e do JS.
+
+    A versão do aplicativo sozinha não serve: entre dois `farol update` na mesma
+    versão o navegador continuaria servindo a folha de estilo antiga do cache.
+    A data de modificação do arquivo muda sempre que o arquivo muda.
+    """
+    try:
+        stamp = max((PKG_DIR / "static" / nome).stat().st_mtime_ns for nome in ("app.css", "app.js"))
+    except OSError:  # arquivo ausente é problema de instalação, não de cache
+        return __version__
+    return f"{__version__}-{stamp:x}"
+
+
+ASSETS_VERSION = _assets_version()
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     db.bootstrap()
@@ -110,7 +127,7 @@ def render(request: Request, template: str, status_code: int = 200, **context: A
         "ai_ready": bool((settings.get("anthropic_api_key") or "").strip()),
         # entra na URL de app.css e app.js: sem isso o navegador serve o arquivo
         # antigo do cache depois de o usuário atualizar o aplicativo
-        "version": __version__,
+        "assets": ASSETS_VERSION,
         "collect_state": collect.status(),
     }
     base.update(context)
@@ -823,27 +840,39 @@ def resume_rebuild(resume_id: int) -> RedirectResponse:
     return go(f"/curriculos/{resume_id}", "Currículo remontado a partir do perfil.")
 
 
-@app.get("/curriculos/{resume_id}/imprimir", response_class=HTMLResponse)
-def resume_print(request: Request, resume_id: int) -> HTMLResponse:
+def _resume_sheet(request: Request, resume_id: int, *, embed: bool) -> HTMLResponse:
+    """A folha do currículo. `embed` tira a barra de ações, para caber no iframe."""
     row = db.one("SELECT * FROM resumes WHERE id = ?", (resume_id,))
     if row is None:
         return go("/curriculos", "Currículo não encontrado.", "warn")  # type: ignore[return-value]
     if row["kind"] == "arquivo":
-        return go(f"/curriculos/{resume_id}", "Este currículo já é um PDF — use “Abrir”.", "warn")
+        return go(f"/curriculos/{resume_id}", "Este currículo já é um PDF — use “Abrir”.", "warn")  # type: ignore[return-value]
     item = resume_dict(row)
     return templates.TemplateResponse(
         request,
         "resume_print.html",
         {
-            "version": __version__,
+            "assets": ASSETS_VERSION,
             "resume": item,
             "data": item["data"],
             "lang": item["lang"],
             "template": resume_mod.template_or_default(item.get("template")),
             "templates": resume_mod.TEMPLATES,
             "sections": resume_mod.sections(item["lang"]),
+            "embed": embed,
         },
     )
+
+
+@app.get("/curriculos/{resume_id}/imprimir", response_class=HTMLResponse)
+def resume_print(request: Request, resume_id: int) -> HTMLResponse:
+    return _resume_sheet(request, resume_id, embed=False)
+
+
+@app.get("/curriculos/{resume_id}/preview", response_class=HTMLResponse)
+def resume_preview(request: Request, resume_id: int) -> HTMLResponse:
+    """Mesma folha sem a barra de ações — é o que o iframe da edição carrega."""
+    return _resume_sheet(request, resume_id, embed=True)
 
 
 @app.post("/curriculos/{resume_id}/ia")

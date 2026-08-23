@@ -5,33 +5,54 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Farol{% endblock %}</title>
-  <link rel="stylesheet" href="/static/app.css?v={{ version }}">
+  <link rel="stylesheet" href="/static/app.css?v={{ assets }}">
   <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  {# tema e estado da barra lateral antes da primeira pintura: aplicá-los no
+     app.js (defer) faria a página piscar no tema errado e com a barra aberta #}
+  <script>
+    (function () {
+      var root = document.documentElement;
+      try {
+        var tema = localStorage.getItem("farol-theme");
+        if (tema) root.dataset.theme = tema;
+        if (localStorage.getItem("farol-nav") === "closed") root.dataset.nav = "closed";
+      } catch (e) {
+        /* localStorage bloqueado (modo privado): o padrão do CSS resolve */
+      }
+    })();
+  </script>
 </head>
 <body>
 <div class="shell">
-  <nav class="sidebar">
+  <nav class="sidebar" id="sidebar">
     <div class="brand">
       {{ icon('farol', 22) }}
-      <div>
+      <div class="brand-text">
         <b>Farol</b>
         <span>central de carreira</span>
       </div>
+      <button class="nav-toggle" type="button" data-nav-toggle
+              aria-controls="sidebar" aria-expanded="true" title="Recolher a barra lateral">
+        {{ icon('recolher', 15) }}
+        <span class="sr-only">Recolher a barra lateral</span>
+      </button>
     </div>
 
     <div class="menu">
-      <a href="/" class="{{ 'on' if nav == 'painel' }}">{{ icon('painel') }} Painel</a>
-      <a href="/vagas" class="{{ 'on' if nav == 'vagas' }}">{{ icon('vagas') }} Vagas</a>
-      <a href="/pipeline" class="{{ 'on' if nav == 'pipeline' }}">{{ icon('pipeline') }} Pipeline</a>
-      <a href="/curriculos" class="{{ 'on' if nav == 'curriculos' }}">{{ icon('curriculos') }} Currículos</a>
-      <a href="/metricas" class="{{ 'on' if nav == 'metricas' }}">{{ icon('metricas') }} Métricas</a>
-      <a href="/roadmap" class="{{ 'on' if nav == 'roadmap' }}">{{ icon('roadmap') }} Roadmap</a>
-      <a href="/perfil" class="{{ 'on' if nav == 'perfil' }}">{{ icon('perfil') }} Perfil</a>
-      <a href="/ajustes" class="{{ 'on' if nav == 'ajustes' }}">{{ icon('ajustes') }} Ajustes</a>
+      <a href="/" class="{{ 'on' if nav == 'painel' }}" title="Painel">{{ icon('painel') }} <span>Painel</span></a>
+      <a href="/vagas" class="{{ 'on' if nav == 'vagas' }}" title="Vagas">{{ icon('vagas') }} <span>Vagas</span></a>
+      <a href="/pipeline" class="{{ 'on' if nav == 'pipeline' }}" title="Pipeline">{{ icon('pipeline') }} <span>Pipeline</span></a>
+      <a href="/curriculos" class="{{ 'on' if nav == 'curriculos' }}" title="Currículos">{{ icon('curriculos') }} <span>Currículos</span></a>
+      <a href="/metricas" class="{{ 'on' if nav == 'metricas' }}" title="Métricas">{{ icon('metricas') }} <span>Métricas</span></a>
+      <a href="/roadmap" class="{{ 'on' if nav == 'roadmap' }}" title="Roadmap">{{ icon('roadmap') }} <span>Roadmap</span></a>
+      <a href="/perfil" class="{{ 'on' if nav == 'perfil' }}" title="Perfil">{{ icon('perfil') }} <span>Perfil</span></a>
+      <a href="/ajustes" class="{{ 'on' if nav == 'ajustes' }}" title="Ajustes">{{ icon('ajustes') }} <span>Ajustes</span></a>
     </div>
 
     <div class="side-foot">
-      <button class="btn btn-quiet btn-sm" data-theme-toggle type="button">{{ icon('tema') }} Tema</button>
+      <button class="btn btn-quiet btn-sm" data-theme-toggle type="button" title="Alternar tema">
+        {{ icon('tema') }} <span>Tema</span>
+      </button>
       {% if profile.name %}
         <div class="hint">{{ profile.name }}<br>{{ seniorities.get(profile.seniority, '') }} · {{ areas.get(profile.area, '') }}</div>
       {% else %}
@@ -42,23 +63,25 @@
 
   <main class="main" {% if nav in ('painel', 'vagas') %}data-reload-on-collect{% endif %}>
     <header class="topbar">
-      <div class="grow">
-        <h1>{% block heading %}{% endblock %}</h1>
-        <div class="sub">{% block subheading %}{% endblock %}</div>
+      <div class="topbar-inner{{ ' wide' if wide }}">
+        <div class="grow">
+          <h1>{% block heading %}{% endblock %}</h1>
+          <div class="sub">{% block subheading %}{% endblock %}</div>
+        </div>
+        <span class="collect" data-collect {% if not collect_state.running %}hidden{% endif %}>
+          <i class="spin"></i> coletando vagas nos portais…
+        </span>
+        {% block actions %}{% endblock %}
       </div>
-      <span class="collect" data-collect {% if not collect_state.running %}hidden{% endif %}>
-        <i class="spin"></i> coletando vagas nos portais…
-      </span>
-      {% block actions %}{% endblock %}
     </header>
 
-    {% if msg %}<div class="flash {{ 'warn' if tone == 'warn' }}">{{ msg }}</div>{% endif %}
+    {% if msg %}<div class="flash{{ ' wide' if wide }} {{ 'warn' if tone == 'warn' }}">{{ msg }}</div>{% endif %}
 
-    <div class="content">
+    <div class="content{{ ' wide' if wide }}">
       {% block content %}{% endblock %}
     </div>
   </main>
 </div>
-<script src="/static/app.js?v={{ version }}" defer></script>
+<script src="/static/app.js?v={{ assets }}" defer></script>
 </body>
 </html>

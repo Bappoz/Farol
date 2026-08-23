@@ -28,9 +28,9 @@
         <b>Pré-visualização</b>
         <span class="faint small">o arquivo continua sendo o seu, o app não altera nada</span>
       </div>
-      <div class="card-body" style="padding:0">
-        <object data="/curriculos/{{ resume.id }}/arquivo" type="application/pdf"
-                style="width:100%; height:640px; border:0; display:block">
+      <div class="card-body tight">
+        <object class="pdf-embed" data="/curriculos/{{ resume.id }}/arquivo" type="application/pdf"
+                style="display:block">
           <p class="empty">
             O visualizador embutido não abriu.
             <a href="/curriculos/{{ resume.id }}/arquivo" target="_blank">Abrir o PDF em outra aba</a>.

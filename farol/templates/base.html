@@ -23,8 +23,9 @@
   </script>
 </head>
 <body>
+<a class="skip-link" href="#conteudo-principal">Pular para o conteúdo principal</a>
 <div class="shell">
-  <nav class="sidebar" id="sidebar">
+  <nav class="sidebar" id="sidebar" aria-label="Navegação principal">
     <div class="brand">
       <img src="/static/logo.png" alt="" width="22" height="22">
       <div class="brand-text">
@@ -39,14 +40,14 @@
     </div>
 
     <div class="menu">
-      <a href="/" class="{{ 'on' if nav == 'painel' }}" title="Painel">{{ icon('painel') }} <span>Painel</span></a>
-      <a href="/vagas" class="{{ 'on' if nav == 'vagas' }}" title="Vagas">{{ icon('vagas') }} <span>Vagas</span></a>
-      <a href="/pipeline" class="{{ 'on' if nav == 'pipeline' }}" title="Pipeline">{{ icon('pipeline') }} <span>Pipeline</span></a>
-      <a href="/curriculos" class="{{ 'on' if nav == 'curriculos' }}" title="Currículos">{{ icon('curriculos') }} <span>Currículos</span></a>
-      <a href="/metricas" class="{{ 'on' if nav == 'metricas' }}" title="Métricas">{{ icon('metricas') }} <span>Métricas</span></a>
-      <a href="/roadmap" class="{{ 'on' if nav == 'roadmap' }}" title="Roadmap">{{ icon('roadmap') }} <span>Roadmap</span></a>
-      <a href="/perfil" class="{{ 'on' if nav == 'perfil' }}" title="Perfil">{{ icon('perfil') }} <span>Perfil</span></a>
-      <a href="/ajustes" class="{{ 'on' if nav == 'ajustes' }}" title="Ajustes">{{ icon('ajustes') }} <span>Ajustes</span></a>
+      <a href="/" class="{{ 'on' if nav == 'painel' }}" title="Painel" {% if nav == 'painel' %}aria-current="page"{% endif %}>{{ icon('painel') }} <span>Painel</span></a>
+      <a href="/vagas" class="{{ 'on' if nav == 'vagas' }}" title="Vagas" {% if nav == 'vagas' %}aria-current="page"{% endif %}>{{ icon('vagas') }} <span>Vagas</span></a>
+      <a href="/pipeline" class="{{ 'on' if nav == 'pipeline' }}" title="Pipeline" {% if nav == 'pipeline' %}aria-current="page"{% endif %}>{{ icon('pipeline') }} <span>Pipeline</span></a>
+      <a href="/curriculos" class="{{ 'on' if nav == 'curriculos' }}" title="Currículos" {% if nav == 'curriculos' %}aria-current="page"{% endif %}>{{ icon('curriculos') }} <span>Currículos</span></a>
+      <a href="/metricas" class="{{ 'on' if nav == 'metricas' }}" title="Métricas" {% if nav == 'metricas' %}aria-current="page"{% endif %}>{{ icon('metricas') }} <span>Métricas</span></a>
+      <a href="/roadmap" class="{{ 'on' if nav == 'roadmap' }}" title="Roadmap" {% if nav == 'roadmap' %}aria-current="page"{% endif %}>{{ icon('roadmap') }} <span>Roadmap</span></a>
+      <a href="/perfil" class="{{ 'on' if nav == 'perfil' }}" title="Perfil" {% if nav == 'perfil' %}aria-current="page"{% endif %}>{{ icon('perfil') }} <span>Perfil</span></a>
+      <a href="/ajustes" class="{{ 'on' if nav == 'ajustes' }}" title="Ajustes" {% if nav == 'ajustes' %}aria-current="page"{% endif %}>{{ icon('ajustes') }} <span>Ajustes</span></a>
     </div>
 
     <div class="side-foot">
@@ -61,21 +62,21 @@
     </div>
   </nav>
 
-  <main class="main" {% if nav in ('painel', 'vagas') %}data-reload-on-collect{% endif %}>
+  <main class="main" id="conteudo-principal" tabindex="-1" {% if nav in ('painel', 'vagas') %}data-reload-on-collect{% endif %}>
     <header class="topbar">
       <div class="topbar-inner{{ ' wide' if wide }}">
         <div class="grow">
           <h1>{% block heading %}{% endblock %}</h1>
           <div class="sub">{% block subheading %}{% endblock %}</div>
         </div>
-        <span class="collect" data-collect {% if not collect_state.running %}hidden{% endif %}>
+        <span class="collect" data-collect role="status" aria-live="polite" {% if not collect_state.running %}hidden{% endif %}>
           <i class="spin"></i> coletando vagas nos portais…
         </span>
         {% block actions %}{% endblock %}
       </div>
     </header>
 
-    {% if msg %}<div class="flash{{ ' wide' if wide }} {{ 'warn' if tone == 'warn' }}">{{ msg }}</div>{% endif %}
+    {% if msg %}<div class="flash{{ ' wide' if wide }} {{ 'warn' if tone == 'warn' }}" role="{{ 'alert' if tone == 'warn' else 'status' }}" aria-live="polite">{{ msg }}</div>{% endif %}
 
     <div class="content{{ ' wide' if wide }}">
       {% block content %}{% endblock %}

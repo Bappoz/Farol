@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Farol{% endblock %}</title>
   <link rel="stylesheet" href="/static/app.css?v={{ assets }}">
-  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/logo.png" type="image/png">
   {# tema e estado da barra lateral antes da primeira pintura: aplicá-los no
      app.js (defer) faria a página piscar no tema errado e com a barra aberta #}
   <script>
@@ -26,7 +26,7 @@
 <div class="shell">
   <nav class="sidebar" id="sidebar">
     <div class="brand">
-      {{ icon('farol', 22) }}
+      <img src="/static/logo.png" alt="" width="22" height="22">
       <div class="brand-text">
         <b>Farol</b>
         <span>central de carreira</span>

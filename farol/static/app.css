@@ -126,7 +126,7 @@ p { margin: 0 0 10px; }
 }
 
 .brand { display: flex; align-items: center; gap: 9px; padding: 4px 8px 0; }
-.brand > svg { flex: none; }
+.brand > svg, .brand > img { flex: none; border-radius: 5px; object-fit: cover; }
 .brand b { font-size: 15px; letter-spacing: -0.02em; }
 .brand span { display: block; font-size: 11px; color: var(--faint); letter-spacing: 0.02em; }
 .brand-text { min-width: 0; overflow: hidden; }

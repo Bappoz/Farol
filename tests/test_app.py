@@ -124,6 +124,26 @@ def test_filtro_de_modelo_de_trabalho(client, com_vagas):
     assert "Desenvolvedor Python Júnior" not in todos_remotos.text
 
 
+def test_filtro_de_nivel_encontra_estagios_e_internships(client, perfil):
+    db.execute(
+        """INSERT INTO jobs (source, source_id, fingerprint, title, description, score)
+           VALUES
+           ('x', 'estagio', 'fp-estagio', 'Estágio em Python', 'Aprenda com o time.', 60),
+           ('x', 'intern', 'fp-intern', 'Software Engineering Internship', 'Internship for students.', 60),
+           ('x', 'junior', 'fp-junior', 'Desenvolvedor Python Júnior', 'Primeiro emprego.', 60),
+           ('x', 'senior', 'fp-senior', 'Senior Python Engineer', '5+ years experience.', 60)"""
+    )
+    estagios = client.get("/vagas?estado=todas&min=0&nivel=estagio")
+    assert "Estágio em Python" in estagios.text
+    assert "Software Engineering Internship" in estagios.text
+    assert "Desenvolvedor Python Júnior" not in estagios.text
+    assert "Senior Python Engineer" not in estagios.text
+
+    entrada = client.get("/vagas?estado=todas&min=0&nivel=entrada")
+    assert "Desenvolvedor Python Júnior" in entrada.text
+    assert "Senior Python Engineer" not in entrada.text
+
+
 def test_lista_vazia_por_modelo_explica_o_porque(client, perfil):
     """Empty state tem de dizer o porquê, não só 'afrouxe o fit'."""
     db.execute("INSERT INTO jobs (source, source_id, fingerprint, title, work_mode) "

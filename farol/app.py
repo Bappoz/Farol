@@ -58,6 +58,23 @@ MAX_BACKUP_BYTES = 60 * 1024 * 1024
 # estados que a listagem oferece como filtro. 'expirada' entra aqui para o
 # usuário poder revisitar o que saiu do ar, mas nunca é o padrão.
 JOB_LIST_STATES = ("novo", "descartada", "expirada")
+JOB_LEVEL_FILTERS = {
+    "estagio": (
+        "LOWER(title) LIKE '%estag%' OR LOWER(description) LIKE '%estag%' "
+        "OR LOWER(title) LIKE '%estágio%' OR LOWER(description) LIKE '%estágio%' "
+        "OR LOWER(title) LIKE '%intern%' OR LOWER(description) LIKE '%intern%' "
+        "OR LOWER(title) LIKE '%trainee%' OR LOWER(description) LIKE '%trainee%'"
+    ),
+    "entrada": (
+        "LOWER(title) LIKE '%estag%' OR LOWER(description) LIKE '%estag%' "
+        "OR LOWER(title) LIKE '%estágio%' OR LOWER(description) LIKE '%estágio%' "
+        "OR LOWER(title) LIKE '%intern%' OR LOWER(description) LIKE '%intern%' "
+        "OR LOWER(title) LIKE '%trainee%' OR LOWER(description) LIKE '%trainee%' "
+        "OR LOWER(title) LIKE '%junior%' OR LOWER(description) LIKE '%junior%' "
+        "OR LOWER(title) LIKE '%júnior%' OR LOWER(description) LIKE '%júnior%' "
+        "OR LOWER(title) LIKE '%entry level%' OR LOWER(description) LIKE '%entry level%'"
+    ),
+}
 
 JOB_LIST_COLUMNS = """id, source, title, company, url, apply_url, location, remote, work_mode,
                       region, salary, tags, published_at, first_seen_at, last_seen_at, score,
@@ -271,6 +288,7 @@ def jobs_list(request: Request) -> HTMLResponse:
     local = (params.get("local") or "").strip()
     modo = params.get("modo") or ""
     regiao = params.get("regiao") or ""
+    nivel = params.get("nivel") or ""
     moeda = params.get("moeda") or "USD"
     if moeda not in scoring.SALARY_CURRENCIES:
         moeda = "USD"
@@ -305,6 +323,8 @@ def jobs_list(request: Request) -> HTMLResponse:
     if modo in scoring.WORK_MODES:
         where.append("work_mode = ?")
         args.append(modo)
+    if nivel in JOB_LEVEL_FILTERS:
+        where.append(f"({JOB_LEVEL_FILTERS[nivel]})")
     if salario:
         # compara com o topo da faixa: a vaga pode pagar até ali. Só entre vagas da
         # mesma moeda — o app não converte câmbio, então comparar EUR com USD mentiria.
@@ -342,6 +362,7 @@ def jobs_list(request: Request) -> HTMLResponse:
     filters = {
         "q": term, "fonte": source, "estado": state, "ordem": order, "min": min_score,
         "local": local, "regiao": regiao, "modo": modo, "salario": salario, "moeda": moeda,
+        "nivel": nivel,
     }
     back_qs = urlencode({k: v for k, v in filters.items() if v} | {"pagina": pagina})
     return render(

@@ -106,6 +106,13 @@ p { margin: 0 0 10px; }
   overflow: hidden; clip-path: inset(50%); white-space: nowrap;
 }
 
+.skip-link {
+  position: fixed; left: 12px; top: 8px; z-index: 20; padding: 8px 12px;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border-strong);
+  border-radius: var(--radius); transform: translateY(-150%);
+}
+.skip-link:focus { transform: translateY(0); }
+
 .shell { display: flex; min-height: 100vh; }
 
 .sidebar {

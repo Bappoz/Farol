@@ -91,6 +91,9 @@ def _selfupdate() -> int:
     if result.get("install_detail"):
         print("Atenção: as dependências podem não ter sido reinstaladas por completo:")
         print(result["install_detail"])
+    if result.get("shortcut_detail"):
+        print("Atenção: o atalho do sistema não foi atualizado:")
+        print(result["shortcut_detail"])
     return 0
 
 

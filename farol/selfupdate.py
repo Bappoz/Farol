@@ -55,6 +55,20 @@ def _reinstall() -> subprocess.CompletedProcess[str]:
     )
 
 
+def _refresh_system_shortcut() -> subprocess.CompletedProcess[str] | None:
+    """Reinstala o atalho para que o sistema também receba os ícones novos."""
+    installer = APP_DIR / "install.sh"
+    if sys.platform.startswith(("linux", "darwin")) and installer.is_file():
+        return subprocess.run(
+            ["bash", str(installer)],
+            cwd=APP_DIR,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+    return None
+
+
 def run(*, reinstall: bool = True) -> dict[str, Any]:
     """Verifica e aplica atualização. Nunca levanta — falha vira `status`."""
     if not (APP_DIR / ".git").exists():
@@ -88,4 +102,8 @@ def run(*, reinstall: bool = True) -> dict[str, Any]:
         install = _reinstall()
         if install.returncode != 0:
             result["install_detail"] = install.stderr.strip()
+        else:
+            shortcut = _refresh_system_shortcut()
+            if shortcut is not None and shortcut.returncode != 0:
+                result["shortcut_detail"] = shortcut.stderr.strip() or shortcut.stdout.strip()
     return result

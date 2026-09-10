@@ -144,6 +144,15 @@ def test_filtro_de_nivel_encontra_estagios_e_internships(client, perfil):
     assert "Senior Python Engineer" not in entrada.text
 
 
+def test_paginas_principais_expoem_marcos_acessiveis(client):
+    resposta = client.get("/vagas")
+    assert resposta.status_code == 200
+    assert 'href="#conteudo-principal"' in resposta.text
+    assert 'aria-label="Navegação principal"' in resposta.text
+    assert 'aria-current="page"' in resposta.text
+    assert 'id="conteudo-principal"' in resposta.text
+
+
 def test_lista_vazia_por_modelo_explica_o_porque(client, perfil):
     """Empty state tem de dizer o porquê, não só 'afrouxe o fit'."""
     db.execute("INSERT INTO jobs (source, source_id, fingerprint, title, work_mode) "

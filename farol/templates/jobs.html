@@ -73,7 +73,8 @@
       <label for="salario">Salário mínimo (ano)</label>
       <div class="row" style="gap:6px">
         <input type="number" id="salario" name="salario" min="0" step="1000" value="{{ filters.salario or '' }}" style="width:110px" placeholder="40000">
-        <select name="moeda" data-autosubmit style="width:74px">
+        <label class="sr-only" for="moeda">Moeda do salário</label>
+        <select id="moeda" name="moeda" data-autosubmit style="width:74px">
           {% for code, symbol in currency_labels.items() %}
           <option value="{{ code }}" {{ 'selected' if filters.moeda == code }}>{{ symbol }}</option>
           {% endfor %}

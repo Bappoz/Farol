@@ -160,6 +160,14 @@ p { margin: 0 0 10px; }
 .menu a.on svg { color: var(--accent); }
 .menu svg { width: 16px; height: 16px; flex: none; color: var(--faint); }
 .menu .count { margin-left: auto; font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
+/* contador de alerta: fica visível mesmo com a barra recolhida, onde o rótulo some */
+.menu .badge {
+  margin-left: auto; min-width: 18px; padding: 1px 5px; border-radius: 9px;
+  background: var(--accent); color: var(--surface);
+  font-size: 10.5px; font-weight: 600; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+:root[data-nav="closed"] .menu .badge { margin-left: 2px; padding: 0 4px; }
 
 .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding: 0 4px; }
 .side-foot .hint { font-size: 11px; color: var(--faint); line-height: 1.4; }
@@ -638,3 +646,43 @@ body.embed .sheet { margin: 0 auto; border-radius: 0; box-shadow: none; }
   }
   @page { margin: 16mm 15mm; }
 }
+
+/* ------------------------------------------------------------ alertas e leituras */
+
+/* lista explicativa: o texto do app costuma ser parágrafo, mas regra de
+   funcionamento lê melhor em item do que em bloco corrido */
+.bullets { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 7px; }
+.bullets li { color: var(--muted); line-height: 1.5; }
+.bullets li b { color: var(--text); }
+
+.artigo { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.artigo:last-child { border-bottom: 0; }
+.artigo.lido { opacity: 0.55; }
+.artigo-topo { display: flex; align-items: baseline; gap: 10px; justify-content: space-between; }
+.artigo h3 { margin: 0; font-size: 14.5px; font-weight: 560; line-height: 1.35; }
+.artigo h3 a { color: var(--text); text-decoration: none; }
+.artigo h3 a:hover { color: var(--accent); text-decoration: underline; }
+.artigo p { margin: 6px 0 8px; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.artigo .meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+/* diagnóstico do servidor de IA local: preenchido pelo app.js */
+.sonda { margin-top: 10px; font-size: 12px; }
+.sonda.bad { color: var(--bad); }
+.sonda ul { margin: 6px 0 0; padding-left: 18px; }
+
+/* blocos do assistente: o fieldset é só agrupamento semântico, sem moldura */
+.bloco-ia { border: 0; padding: 0; margin: 0; min-width: 0; }
+
+/* ------------------------------------------- política de fontes (Ajustes) */
+
+.recusado { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.recusado:last-of-type { border-bottom: 0; }
+.recusado p { margin: 6px 0 0; line-height: 1.5; }
+
+/* o caminho manual fica destacado: é a ação que substitui a fonte ausente */
+.callout {
+  margin-top: 12px; padding: 12px 14px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent); border-radius: var(--radius);
+}
+.callout p { margin: 6px 0 0; line-height: 1.5; }

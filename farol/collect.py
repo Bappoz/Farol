@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from . import db, scoring, skills, sources
+from . import alerts, db, scoring, skills, sources
 
 # pausa entre requisições — portal nenhum gosta de rajada, e rajada é o que
 # costuma disparar CAPTCHA e bloqueio por IP. FAROL_REQUEST_DELAY=0 desliga
@@ -39,8 +39,13 @@ def fingerprint(title: str, company: str) -> str:
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
 
-def _upsert(conn, item: dict[str, Any], profile: dict, settings: dict) -> str:
-    """Grava a vaga. Devolve 'nova', 'atualizada' ou 'duplicada'."""
+def _upsert(conn, item: dict[str, Any], profile: dict, settings: dict) -> tuple[str, int]:
+    """Grava a vaga. Devolve ('nova' | 'atualizada' | 'duplicada', id da vaga).
+
+    O id volta junto porque os alertas precisam saber exatamente quais linhas a
+    rodada tocou: varrer a base inteira a cada coleta leria a descrição de
+    milhares de anúncios para comparar meia dúzia de termos.
+    """
     fp = fingerprint(item["title"], item["company"])
     existing = conn.execute(
         "SELECT id, source, source_id FROM jobs WHERE source = ? AND source_id = ?",
@@ -57,7 +62,7 @@ def _upsert(conn, item: dict[str, Any], profile: dict, settings: dict) -> str:
             conn.execute(
                 "UPDATE jobs SET last_seen_at = datetime('now') WHERE id = ?", (twin["id"],)
             )
-            return "duplicada"
+            return "duplicada", twin["id"]
         verdict = "nova"
 
     result = scoring.score_job(item, profile, settings)
@@ -73,7 +78,7 @@ def _upsert(conn, item: dict[str, Any], profile: dict, settings: dict) -> str:
         item["description"], item["published_at"], result["score"], db.dumps(result), fp,
     )
     if existing is None:
-        conn.execute(
+        cursor = conn.execute(
             """INSERT INTO jobs (title, company, url, apply_url, location, remote, work_mode,
                                  region, salary, salary_min, salary_max, salary_currency, tags,
                                  skills, description, published_at, score, score_data, fingerprint,
@@ -81,16 +86,17 @@ def _upsert(conn, item: dict[str, Any], profile: dict, settings: dict) -> str:
                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (*payload, item["source"], item["source_id"]),
         )
-    else:
-        conn.execute(
-            """UPDATE jobs SET title=?, company=?, url=?, apply_url=?, location=?, remote=?,
-                               work_mode=?, region=?, salary=?, salary_min=?, salary_max=?,
-                               salary_currency=?, tags=?, skills=?, description=?, published_at=?,
-                               score=?, score_data=?, fingerprint=?, last_seen_at=datetime('now')
-               WHERE id=?""",
-            (*payload, existing["id"]),
-        )
-    return verdict
+        return verdict, int(cursor.lastrowid or 0)
+
+    conn.execute(
+        """UPDATE jobs SET title=?, company=?, url=?, apply_url=?, location=?, remote=?,
+                           work_mode=?, region=?, salary=?, salary_min=?, salary_max=?,
+                           salary_currency=?, tags=?, skills=?, description=?, published_at=?,
+                           score=?, score_data=?, fingerprint=?, last_seen_at=datetime('now')
+           WHERE id=?""",
+        (*payload, existing["id"]),
+    )
+    return verdict, existing["id"]
 
 
 def highlights(since: str, min_score: int, limit: int = 5) -> list[dict[str, Any]]:
@@ -189,13 +195,17 @@ def run(source_ids: list[str] | None = None) -> dict[str, Any]:
     # de escrita no SQLite
     report: list[dict[str, Any]] = []
     total_new = 0
+    touched: set[int] = set()
     conn = db.connect()
     for source in active:
         items, error = harvest.get(source["id"], ([], "fonte não executada"))
         new = 0
         with conn:
             for item in items:
-                if _upsert(conn, item, profile, settings) == "nova":
+                verdict, job_id = _upsert(conn, item, profile, settings)
+                if job_id:
+                    touched.add(job_id)
+                if verdict == "nova":
                     new += 1
         status = "erro" if error and not items else "ok"
         with conn:
@@ -226,8 +236,12 @@ def run(source_ids: list[str] | None = None) -> dict[str, Any]:
             limite = 70
         destaques = highlights(started, limite)
         notify(destaques)
+
+    # os alertas fecham a rodada: nenhuma requisição própria, só o casamento
+    # sobre o que acabou de ser gravado (ver farol.alerts)
+    aviso = alerts.run(sorted(touched))
     return {"sources": report, "new": total_new, "highlights": destaques,
-            "expired": expiradas}
+            "expired": expiradas, "alerts": aviso["hits"], "alerts_error": aviso["error"]}
 
 
 def expire(conn=None) -> int:

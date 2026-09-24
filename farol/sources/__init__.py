@@ -22,7 +22,7 @@ from typing import Any
 import httpx
 
 from .. import USER_AGENT
-from . import arbeitnow, himalayas, remoteok, remotive, rss, vagasbr, weworkremotely
+from . import arbeitnow, himalayas, policy, remoteok, remotive, rss, vagasbr, weworkremotely
 from .query import first_term, matches
 
 # Fontes que trazem a lista inteira de uma vez e filtram (ou não) por conta
@@ -44,6 +44,7 @@ __all__ = [
     "first_term",
     "matches",
     "normalize",
+    "policy",
     "to_text",
 ]
 

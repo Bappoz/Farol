@@ -167,7 +167,9 @@
         Nenhuma vaga corresponde ao nível selecionado. Tente combinar o filtro com
         uma busca mais ampla ou selecione “todos”.
       {% else %}
-        Afrouxe o fit mínimo ou limpe os filtros.
+        Afrouxe o fit mínimo ou limpe os filtros. Se a vaga que você procura está num portal
+        que o Farol não coleta, o motivo está em <a href="/ajustes">Ajustes</a> — e ela pode
+        entrar à mão no <a href="/pipeline">Pipeline</a>.
       {% endif %}
     </div>
     {% endfor %}
@@ -184,5 +186,11 @@
     {% else %}<span></span>{% endif %}
   </div>
   {% endif %}
+
+  <p class="small faint" style="padding:10px 14px; border-top:1px solid var(--border); margin:0">
+    Viu uma vaga em outro site e ela não está aqui? Nem todo portal é coletado, e cada ausência
+    tem motivo registrado em <a href="/ajustes">Ajustes → Portais que não entram</a>. Nesses casos
+    o caminho é cadastrar a candidatura à mão no <a href="/pipeline">Pipeline</a>.
+  </p>
 </div>
 {% endblock %}

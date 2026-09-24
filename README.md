@@ -624,7 +624,7 @@ do tamanho da base.
 ```bash
 ./install.sh --sem-atalho              # ambiente e instalação editável
 .venv/bin/python -m farol servir --reload
-.venv/bin/python -m pytest             # 256 testes, sem acesso à rede
+.venv/bin/python -m pytest             # 257 testes, sem acesso à rede
 .venv/bin/ruff check farol tests
 ```
 

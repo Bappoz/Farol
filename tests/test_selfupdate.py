@@ -90,3 +90,26 @@ def test_falha_de_rede_vira_status_error(clone, monkeypatch):
 
     assert resultado["status"] == "error"
     assert "conectar" in resultado["detail"]
+
+
+def test_instalador_roda_sem_terminal():
+    """`farol update` chama o install.sh com a saída capturada — sem tty.
+
+    Regressão real: `uv venv` sobre um `.venv` existente pergunta se pode
+    substituí-lo. Sem terminal ele não pergunta, sai com erro, o `set -e` aborta
+    o instalador em 1/5 e o atalho do sistema — com os ícones — nunca é
+    atualizado. Era exatamente o que `_refresh_system_shortcut` existia para
+    fazer, e não fazia em nenhuma máquina que já tivesse o ambiente criado.
+    """
+    script = Path(__file__).resolve().parents[1] / "install.sh"
+    chamadas = [
+        linha.strip()
+        for linha in script.read_text(encoding="utf-8").splitlines()
+        if linha.strip().startswith("uv venv")
+    ]
+
+    assert chamadas, "o instalador deixou de criar o ambiente com uv"
+    for chamada in chamadas:
+        assert "--allow-existing" in chamada or "--clear" in chamada, (
+            f"`{chamada}` trava esperando resposta quando o ambiente já existe"
+        )

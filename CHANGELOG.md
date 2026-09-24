@@ -94,6 +94,15 @@ Versionamento conforme [SemVer](https://semver.org/lang/pt-BR/).
 
 ### Corrigido
 
+- **O instalador travava quando rodava sem terminal**, e com ele o mecanismo que
+  deveria propagar ícone e atalho novos. `uv venv` sobre um `.venv` existente
+  pergunta se pode substituí-lo; sem tty ele não pergunta, sai com erro, o
+  `set -e` aborta o `install.sh` em 1/5 e o `_refresh_system_shortcut` do
+  `farol update` — que chama o script com a saída capturada — nunca chegava à
+  etapa do atalho. Ou seja: a correção de ícone da versão anterior não surtia
+  efeito em nenhuma máquina que já tivesse o ambiente criado, que é toda máquina
+  que já tinha o Farol. `uv venv --allow-existing` resolve, e de quebra reusar o
+  ambiente deixa a reinstalação muito mais rápida.
 - O filtro de nível da lista de vagas e o casamento dos alertas passam a ler a
   mesma lista de termos (`scoring.LEVEL_TERMS`). Mantê-las escritas à mão em dois
   lugares era garantir que um dia divergissem, e aí o alerta avisaria de vaga que

@@ -241,7 +241,7 @@ truth. Design decisions are in
 ```bash
 ./install.sh --sem-atalho              # environment and editable install
 .venv/bin/python -m farol servir --reload
-.venv/bin/python -m pytest             # 256 tests, no network access
+.venv/bin/python -m pytest             # 257 tests, no network access
 .venv/bin/ruff check farol tests
 ```
 

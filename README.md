@@ -33,6 +33,8 @@ em seguida. Sem conta, sem nuvem, sem assinatura.
   - [Métricas](#métricas)
 - [Fontes de vagas](#fontes-de-vagas)
 - [Política de coleta](#política-de-coleta)
+- [Alertas de vaga nova](#alertas-de-vaga-nova)
+- [Leituras](#leituras)
 - [Assistente por inteligência artificial](#assistente-por-inteligência-artificial)
 - [Linha de comando](#linha-de-comando)
 - [Dados e backup](#dados-e-backup)
@@ -49,19 +51,23 @@ em seguida. Sem conta, sem nuvem, sem assinatura.
 O Farol é um aplicativo de desktop que roda inteiramente na máquina do usuário.
 O servidor escuta apenas em `127.0.0.1`, os dados ficam em um arquivo SQLite no
 diretório do usuário e nenhuma informação é enviada para serviços externos —
-exceto as requisições de leitura aos portais de vagas e, quando explicitamente
-habilitado, ao assistente por inteligência artificial.
+exceto as requisições de leitura aos portais de vagas, aos feeds de leitura que
+você ligar e, quando explicitamente habilitado, ao assistente por inteligência
+artificial. O assistente pode ser um **modelo rodando na sua própria máquina**,
+e aí nem esse tráfego sai da sua rede.
 
 | Tela | Finalidade |
 |------|------------|
 | **Painel** | Funil de candidaturas, meta semanal, próximas ações atrasadas e as vagas de maior aderência no momento. |
 | **Vagas** | Vagas coletadas de seis portais mais os feeds RSS cadastrados, com pontuação de 0 a 100 explicada item a item e filtros combináveis. |
+| **Alertas** | Buscas guardadas que avisam quando a coleta traz vaga nova compatível, com resumo dentro do app e aviso opcional no desktop. |
+| **Leituras** | Índice de artigos técnicos dos feeds RSS que você ligar, etiquetado com as mesmas competências do fit score. Opt-in e sem republicar texto de ninguém. |
 | **Métricas** | Conversão entre etapas, tempo mediano de cada passo, ritmo semanal, candidaturas esquecidas, retorno por fonte e faixa salarial das vagas coletadas. |
 | **Pipeline** | Quadro das candidaturas por etapa, com histórico e próximo passo. O cartão muda de coluna por arraste ou pelo seletor de etapa, que funciona no teclado e no celular. |
-| **Currículos** | Currículo base e versões direcionadas a uma vaga, em português ou inglês, em quatro modelos de apresentação, com verificação antes do envio, carta de apresentação e geração de PDF. Também armazena PDFs prontos. |
+| **Currículos** | Currículo base e versões direcionadas a uma vaga, em português ou inglês, em quatro modelos de apresentação, com verificação antes do envio, carta de apresentação e geração de PDF. Com assistente configurado, a versão direcionada sai pronta em um clique a partir da tela da vaga. Também armazena PDFs prontos. |
 | **Roadmap** | Lacunas de competência calculadas sobre as vagas que as suas buscas trouxeram, com projetos e certificações recomendados. |
 | **Perfil** | Fonte única de verdade: alimenta a pontuação, os currículos e o roadmap. |
-| **Ajustes** | Termos de busca, fontes com diagnóstico de erro, preferências de região, notificação no desktop e a chave opcional da API. |
+| **Ajustes** | Termos de busca, fontes com diagnóstico de erro, preferências de região, notificação no desktop e o assistente de IA opcional — chave da API ou modelo local. |
 
 ---
 
@@ -141,6 +147,8 @@ Os dados **não** são apagados. Para removê-los também, acrescente `--com-dad
    usar *Ver / gerar PDF* → *Salvar como PDF* no diálogo de impressão.
 6. **Roadmap.** O que aparece com frequência nas suas vagas e falta no seu perfil
    se converte em projeto ou certificação recomendada.
+7. **Alertas**, quando a busca já estiver afinada: guarde-a como alerta e o app
+   passa a avisar sozinho quando entrar vaga nova compatível.
 
 ---
 
@@ -312,6 +320,24 @@ Para acrescentar um portal que publique RSS ou Atom, basta colar a URL do feed e
 Ajustes → *Adicionar feed*. Para um portal com API própria, o procedimento está
 descrito em [CONTRIBUTING.md](CONTRIBUTING.md#adicionar-uma-fonte-de-vagas).
 
+Feeds abertos que valem cadastrar, todos verificados:
+
+| Feed | URL |
+|------|-----|
+| Jobicy | `https://jobicy.com/?feed=job_feed` |
+| Hacker News — *Who is hiring* | `https://hnrss.org/whoishiring/jobs` |
+| Hacker News — vagas de startups YC | `https://hnrss.org/jobs` |
+| Python.org Jobs | `https://www.python.org/jobs/feed/rss/` |
+| We Work Remotely — programação | `https://weworkremotely.com/categories/remote-programming-jobs.rss` |
+
+**E o LinkedIn?** Fica de fora, por decisão registrada. O `robots.txt` do site
+proíbe acesso automatizado sem permissão expressa (`User-agent: *` / `Disallow: /`),
+e as únicas permissões autosserviço da API oficial são login e publicação — nenhuma
+lê anúncio de vaga. O raciocínio completo, as evidências e as alternativas estão em
+[`docs/decisoes/0001-linkedin-como-fonte.md`](docs/decisoes/0001-linkedin-como-fonte.md).
+O critério que ficou valendo para as próximas fontes: **o Farol só coleta de portal
+cujo `robots.txt` permita, ou que ofereça API ou feed público para este uso.**
+
 O termo de busca casa **todas as palavras** informadas, em qualquer posição do
 anúncio. `junior backend python` encontra vagas que mencionem as três palavras,
 ainda que separadas — não a frase literal.
@@ -346,15 +372,130 @@ O uso é pessoal. Respeite os termos de cada portal.
 
 ---
 
+## Alertas de vaga nova
+
+Um alerta é uma busca guardada: termos, nível, região, modelo de trabalho e fit
+mínimo. No fim de cada coleta, as vagas que acabaram de entrar são comparadas com
+os alertas ativos, e o que casa aparece em **Alertas** e no topo do Painel. O
+aviso no desktop é opcional, por alerta.
+
+O que o alerta **não** faz é buscar por conta própria. Ele trabalha sobre o que a
+coleta normal já trouxe, então ligar cinco alertas não gera nenhuma requisição a
+mais nos portais — a janela de descanso continua sendo o único regulador de
+tráfego.
+
+Cada vaga casa com cada alerta **uma única vez**. O mesmo anúncio reaparece em
+toda coleta enquanto estiver no ar; avisar de novo transformaria o alerta em
+ruído em dois dias. Um alerta recém-criado começa com o acervo já marcado como
+lido — a tela diz quantas vagas antigas casam, sem despejar trinta avisos.
+
+Pausar interrompe o casamento; desmarcar *Avisar no desktop* mantém o resumo na
+tela e cala só o sistema; remover apaga o alerta e o histórico dele.
+
+---
+
+## Leituras
+
+Um índice de artigos técnicos, ligado por RSS/Atom e etiquetado com as mesmas
+competências que alimentam o fit score — o Roadmap diz **o que** estudar, e esta
+tela ajuda a achar **por onde** começar.
+
+Quatro limites deliberados, detalhados em
+[`docs/decisoes/0002-agregador-de-leituras.md`](docs/decisoes/0002-agregador-de-leituras.md):
+
+- **Só feed.** Nada de raspar HTML de blog: feed é o canal que o autor abriu de
+  propósito para ser lido por programa.
+- **Índice, não cópia.** Ficam gravados título, link, data, feed e o resumo curto
+  que o próprio feed publica (até 400 caracteres). O texto do artigo continua no
+  site de quem escreveu, e é para lá que o link leva.
+- **Opt-in.** Os dez feeds do catálogo embutido nascem desligados, e a busca só
+  roda quando você clica em **Buscar artigos**. Quem nunca abrir a tela não gera
+  uma requisição sequer.
+- **Poda e validade.** Artigo publicado há mais de um ano ganha a marca *pode
+  estar desatualizado*; o acervo é podado pela janela definida em Ajustes
+  (padrão: 60 dias).
+
+A deduplicação é feita no banco, em duas camadas: o par (feed, identificador) para
+o mesmo item reaparecendo no próprio feed, e a URL normalizada — sem `www.`, sem
+barra final e sem parâmetros de campanha — para o mesmo artigo chegando por dois
+feeds diferentes.
+
+---
+
 ## Assistente por inteligência artificial
 
-Opcional e desligado por padrão. Ao inserir uma chave da API Anthropic em
-Ajustes, três botões passam a existir: revisar o resumo, reescrever os marcadores
-e revisar a carta de apresentação.
+Opcional e **desligado por padrão**. Sem assistente, o app funciona inteiro: a
+pontuação, o roadmap e o currículo são calculados na máquina, sem acesso à rede.
+Em Ajustes você escolhe quem escreve:
 
-Sem chave configurada, os botões não aparecem e todo o restante funciona
-igualmente: a pontuação, o roadmap e o currículo são calculados localmente, sem
-qualquer acesso à rede.
+| Provedor | O que é | Onde o texto vai |
+|----------|---------|------------------|
+| **Nenhum** | o padrão | a lugar nenhum |
+| **API Anthropic** | sua chave, seu modelo | sai da máquina |
+| **Modelo local** | um servidor que você mesmo subiu | não sai da sua rede |
+
+Com um provedor configurado aparecem os botões de revisar resumo, reescrever
+marcadores e revisar a carta — e, na tela da vaga, **Gerar e revisar**, que monta
+o currículo direcionado e o passa pelo modelo em um clique.
+
+A instrução de sistema é a mesma nos dois provedores, e proíbe inventar
+experiência, empresa, número, diploma ou tecnologia que não esteja no seu perfil.
+Quando falta informação, o modelo escreve `[preencher]`. **Confira cada linha
+antes de enviar**: a revisão é sugestão, não verdade.
+
+### Modelo local
+
+O Farol **não instala, não baixa e não sobe** modelo nenhum. A integração é sua:
+você sobe o servidor que preferir e diz o endereço aqui.
+
+| Servidor | Como subir | Porta padrão |
+|----------|-----------|--------------|
+| [Ollama](https://ollama.com) | `ollama serve` | `11434` |
+| [LM Studio](https://lmstudio.ai) | *Developer → Start Server* | `1234` |
+| [llama.cpp](https://github.com/ggml-org/llama.cpp) | `llama-server -m modelo.gguf` | `8080` |
+| [Jan](https://jan.ai) | *Local API Server* | `1337` |
+
+Qualquer um serve: o app fala a API compatível com a da OpenAI
+(`/v1/chat/completions`), que os quatro implementam.
+
+**Segurança.** O endereço só é aceito se resolver inteiramente para loopback ou
+rede privada, e a checagem roda antes de **cada** requisição, não só ao salvar. O
+que sai daqui é o seu currículo e a descrição da vaga: um endereço digitado
+errado que apontasse para fora seria um vazamento sem nenhum aviso na tela. O
+cliente HTTP também ignora proxy do ambiente, pela mesma razão.
+
+**Qual modelo usar.** Ajustes mede a RAM e a VRAM da máquina e marca, no catálogo
+abaixo, o que cabe. Os tamanhos são os dos manifestos publicados pela biblioteca
+do Ollama, não estimativas; quando a memória não pode ser medida, **nada** é
+marcado como "cabe" e a tela diz isso.
+
+| Modelo | Baixa | Pede | Para quê |
+|--------|-------|------|----------|
+| `qwen2.5:3b` | 1,9 GB | 6 GB | o mais leve que ainda escreve português aceitável |
+| `llama3.2:3b` | 2,0 GB | 6 GB | alternativa de 3B, texto mais solto |
+| `qwen3:4b` | 2,5 GB | 8 GB | raciocina antes de responder; melhor carta, mais lento |
+| `phi4-mini` | 2,5 GB | 8 GB | obediente a instrução curta, português seco |
+| `gemma3:4b` | 3,3 GB | 8 GB | português do Brasil mais natural entre os pequenos |
+| `mistral:7b` | 4,4 GB | 12 GB | veterano estável |
+| `qwen2.5:7b` | 4,7 GB | 12 GB | melhor equilíbrio em máquina de 16 GB |
+| `llama3.1:8b` | 4,9 GB | 12 GB | texto longo com boa coesão |
+| `qwen3:8b` | 5,2 GB | 16 GB | a melhor escrita da lista, e a mais lenta |
+| `gemma3:12b` | 8,1 GB | 24 GB | só com GPU de 12 GB ou mais |
+
+O botão **Ver modelos instalados** pergunta ao seu servidor o que ele tem — o app
+lista o que existe, não adivinha.
+
+**Sobre a espera.** Em CPU, sem GPU dedicada, um modelo de 3B escreve alguns
+tokens por segundo: as três etapas da geração dirigida levam **minutos**, não
+segundos. O tempo limite padrão é de 300 segundos por etapa
+(`FAROL_LOCAL_AI_TIMEOUT`). Uma etapa que falha não leva as outras junto — o
+currículo fica com o que deu certo, e a tela diz o que faltou.
+
+O raciocínio dos modelos que pensam em voz alta (`<think>…</think>`, como Qwen3 e
+DeepSeek-R1) é removido antes de o texto entrar no documento.
+
+As decisões de projeto desta integração estão em
+[`docs/decisoes/0003-ia-local.md`](docs/decisoes/0003-ia-local.md).
 
 ---
 
@@ -445,15 +586,24 @@ farol/
   collect.py      ingestão: busca, deduplicação, gravação e pontuação
   scoring.py      pontuação explicável, modelo de trabalho, região e faixa salarial
   skills.py       taxonomia de competências e extração de texto
+  alerts.py       buscas guardadas e casamento com as vagas da rodada
+  reading.py      feeds de artigo, ingestão como índice e poda
   markup.py       descrição da vaga em HTML legível (escapa antes de marcar)
   resume.py       montagem de currículo, carta e verificação
+  ai.py           assistente opcional: escolhe o provedor e guarda as instruções
+  localai.py      servidor de modelo local: endereço privado, catálogo e hardware
+  insights.py     métricas do funil a partir do histórico de eventos
   pdfs.py         PDFs enviados: armazenar, servir e extrair texto
   roadmap.py      lacunas, projetos e certificações
+  agenda.py       próximas ações em iCalendar
+  backup.py       exportar, ler e restaurar o trabalho da pessoa
+  selfupdate.py   `farol update` sobre um clone git
   launcher.py     abertura do aplicativo em Linux, macOS e Windows
   sources/        um módulo por portal, leitor RSS genérico e casamento de termos
   data/           catálogo de projetos e certificações (JSON editável)
   templates/      páginas
   static/         app.css, app.js e ícone
+docs/decisoes/    decisões registradas (o que foi decidido não fazer, e por quê)
 packaging/        especificação do executável único (PyInstaller)
 assets/           ícones nos formatos de cada sistema
 ```
@@ -474,13 +624,17 @@ do tamanho da base.
 ```bash
 ./install.sh --sem-atalho              # ambiente e instalação editável
 .venv/bin/python -m farol servir --reload
-.venv/bin/python -m pytest             # 132 testes, sem acesso à rede
+.venv/bin/python -m pytest             # 256 testes, sem acesso à rede
 .venv/bin/ruff check farol tests
 ```
 
 Com [`just`](https://github.com/casey/just): `just setup`, `just dev`,
 `just check`, `just binary`, `just docker`. O `justfile` é a referência canônica
 dos comandos do projeto.
+
+As escolhas de projeto que uma pessoa reabriria sem o registro — principalmente
+as que terminaram em *não fazer* — ficam em
+[`docs/decisoes/`](docs/decisoes/README.md).
 
 A suíte de testes não acessa a rede: os coletores são exercitados contra
 respostas HTTP gravadas em `tests/fixtures/`.
@@ -495,6 +649,20 @@ O servidor escuta em `127.0.0.1` e não possui autenticação, porque assume que
 único cliente é a pessoa sentada na máquina. Os dados não são cifrados em
 repouso. O modelo de ameaça completo, as superfícies consideradas no projeto e o
 canal para relatar vulnerabilidades estão em [SECURITY.md](SECURITY.md).
+
+Todo tráfego de saída é deliberado e listável:
+
+| Quando | Para onde |
+|--------|-----------|
+| coleta de vagas | os portais ativos em Ajustes |
+| busca de artigos | os feeds que você ligou em Leituras, e só quando você pede |
+| assistente Anthropic | `api.anthropic.com`, se e quando você escolher esse provedor |
+| assistente local | o endereço que você configurou, sempre dentro da sua rede |
+| `farol update` | o repositório git de onde o app foi clonado |
+
+A chave da API fica só no banco local e **nunca** entra no backup. O endereço do
+modelo local é validado contra loopback e rede privada a cada requisição, e o
+cliente HTTP do assistente local ignora proxy herdado do ambiente.
 
 ---
 

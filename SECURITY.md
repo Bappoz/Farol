@@ -22,12 +22,14 @@ usuário tem acesso ao banco; use cifragem de disco se isso importa no seu caso.
 | Descrição de vaga vinda de portal de terceiro | Escapada antes de qualquer marcação (`farol.markup`); nunca é inserida como HTML. |
 | Consultas ao banco | Sempre parametrizadas. Nenhum valor de usuário é concatenado em SQL. |
 | PDF enviado pelo usuário | Validado pelo cabeçalho do arquivo, limitado a 15 MB, gravado com nome derivado e servido apenas de dentro do diretório de dados (`pdfs.path_for` recusa caminho que escape dele). |
-| Chave da API Anthropic | Guardada no banco local e enviada somente para `api.anthropic.com`, quando o usuário aciona um dos botões de revisão. |
-| Requisições aos portais | Somente leitura, sem credencial, com `User-Agent` identificando o aplicativo. |
+| Chave da API Anthropic | Guardada no banco local, nunca incluída no backup e enviada somente para `api.anthropic.com`, quando o usuário aciona um dos botões de revisão. |
+| Endereço do assistente de IA local | Resolvido e recusado se **qualquer** IP resolvido for público. A checagem roda ao salvar o ajuste e de novo antes de cada requisição, porque o que trafega ali é o currículo inteiro. O cliente HTTP usa `trust_env=False`: um proxy herdado do ambiente mandaria para fora exatamente o que a validação impede. |
+| Requisições aos portais e aos feeds | Somente leitura, sem credencial, com `User-Agent` identificando o aplicativo. Os feeds de leitura nascem desligados e só são buscados a pedido explícito. |
 
 O assistente por inteligência artificial é opcional e desligado por padrão. Sem
-chave configurada, o aplicativo não faz nenhuma requisição além da coleta de
-vagas: pontuação, currículo e roadmap são calculados localmente.
+provedor configurado, o aplicativo não faz nenhuma requisição além da coleta de
+vagas: pontuação, currículo e roadmap são calculados localmente. Com o provedor
+**local**, nada do currículo sai da rede do usuário.
 
 ## Versões com suporte
 

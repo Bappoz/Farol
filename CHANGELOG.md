@@ -3,9 +3,55 @@
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 Versionamento conforme [SemVer](https://semver.org/lang/pt-BR/).
 
-## [Não publicado]
+## [1.1.0] — 2026-09-24
 
 ### Adicionado
+
+- **Assistente de IA por modelo local** (issue #15): em Ajustes dá para escolher
+  entre nenhum assistente (o padrão), a API da Anthropic e um servidor que você
+  mesmo subiu — Ollama, LM Studio, `llama-server` ou Jan, pela API compatível com
+  a da OpenAI. O endereço só é aceito se resolver inteiramente para loopback ou
+  rede privada, e a checagem roda **antes de cada requisição**, não só ao salvar:
+  o que sai daqui é o currículo inteiro. O app não instala, não baixa e não sobe
+  modelo nenhum; ele mede a RAM e a VRAM da máquina, marca no catálogo o que cabe
+  e pergunta ao servidor quais modelos já estão instalados. Quando a memória não
+  pode ser medida, nada é marcado como "cabe" — recomendar no escuro termina em
+  swap. Decisão registrada em `docs/decisoes/0003-ia-local.md`.
+- **Gerar currículo dirigido à vaga em um clique**, na tela da vaga: monta a
+  partir do perfil e, com assistente configurado, passa resumo, marcadores e
+  carta pelo modelo. O rascunho de base continua vindo do `resume.build`, então
+  falha do modelo devolve um currículo completo, nunca uma página em branco — e
+  uma etapa que falha não leva as outras junto. A instrução que proíbe inventar
+  experiência é a mesma nos dois provedores.
+- **Alertas de vaga nova** (issue #12): uma busca guardada — termos, nível,
+  região, modelo de trabalho e fit mínimo — que passa a avisar quando a coleta
+  traz vaga compatível. O casamento roda no fim da rodada, sobre o que a coleta
+  já trouxe: nenhum alerta gera requisição própria, e a janela de descanso
+  continua sendo o único regulador de tráfego. Cada vaga casa com cada alerta uma
+  única vez (a chave de `alert_hits` é a deduplicação); alerta recém-criado entra
+  com o acervo marcado como lido, para não abrir com trinta avisos de semanas
+  atrás. Opt-out em dois níveis: pausar para de casar, e desmarcar o aviso mantém
+  o resumo na tela e cala só o desktop.
+- **Leituras** (issue #9): agregador de artigos técnicos por RSS/Atom, etiquetado
+  com a mesma taxonomia de competências do fit score — o Roadmap diz o que
+  estudar, esta tela ajuda a achar por onde começar. É um **índice**, não uma
+  cópia: título, link, data e o resumo curto que o próprio feed publica, com o
+  link levando ao site de quem escreveu. Os dez feeds embutidos nascem desligados
+  e a busca só roda a pedido, então quem nunca abrir a tela não gera uma
+  requisição sequer. Deduplicação no banco em duas camadas — o par (feed, guid) e
+  a URL normalizada, que pega o mesmo artigo chegando por dois feeds. Artigo
+  antigo ganha marca de possivelmente desatualizado e o acervo é podado pela
+  janela em Ajustes. Estudo de custo-benefício em
+  `docs/decisoes/0002-agregador-de-leituras.md`.
+- **"Portais que não entram, e por quê"** em Ajustes: a ausência de um portal
+  grande parece defeito, e quem procura o LinkedIn na lista de fontes e não acha
+  conclui que o app está quebrado. A tela agora diz o critério, nomeia cada
+  portal recusado com a evidência datada e o link para a decisão, e mostra ao
+  lado o caminho que substitui a fonte — cadastrar a candidatura à mão no
+  Pipeline e marcar no Roadmap a tecnologia que a vaga pede. Vagas e Pipeline
+  apontam para lá. Os cinco feeds abertos equivalentes entram com um clique.
+- **`docs/decisoes/`**: registro das escolhas que alguém reabriria sem elas,
+  principalmente as que terminaram em *não fazer*.
 
 - **Restaurar backup**, que não existia: o app exportava JSON desde a primeira
   versão e nunca soube lê-lo de volta. O backup passa a ser um ZIP com o
@@ -35,6 +81,23 @@ Versionamento conforme [SemVer](https://semver.org/lang/pt-BR/).
   português e a primeira a trazer vaga híbrida e presencial em quantidade — o
   filtro por modelo de trabalho devolvia lista vazia porque todas as fontes
   eram portais de trabalho remoto.
+
+### Decidido
+
+- **LinkedIn não entra como fonte de vagas** (issue #10). O `robots.txt` do site
+  proíbe acesso automatizado sem permissão expressa (`User-agent: *` /
+  `Disallow: /`) e as únicas permissões autosserviço da API oficial são login e
+  publicação — nenhuma lê anúncio. Ficou valendo o critério para as próximas
+  fontes: só entra portal cujo `robots.txt` permita, ou que ofereça API ou feed
+  público para este uso. As alternativas abertas verificadas estão listadas no
+  README e em `docs/decisoes/0001-linkedin-como-fonte.md`.
+
+### Corrigido
+
+- O filtro de nível da lista de vagas e o casamento dos alertas passam a ler a
+  mesma lista de termos (`scoring.LEVEL_TERMS`). Mantê-las escritas à mão em dois
+  lugares era garantir que um dia divergissem, e aí o alerta avisaria de vaga que
+  o filtro da tela não mostra.
 
 ## [1.0.0] — 2026-08-20
 

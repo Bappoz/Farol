@@ -9,7 +9,7 @@ from __future__ import annotations
 
 __all__ = ["USER_AGENT", "__version__"]
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 # Identificação honesta nas requisições aos portais. Não imitamos um navegador:
 # além de ser a postura correta para um coletor, a proteção antibot de alguns

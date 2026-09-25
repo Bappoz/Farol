@@ -42,8 +42,10 @@
     <div class="menu">
       <a href="/" class="{{ 'on' if nav == 'painel' }}" title="Painel" {% if nav == 'painel' %}aria-current="page"{% endif %}>{{ icon('painel') }} <span>Painel</span></a>
       <a href="/vagas" class="{{ 'on' if nav == 'vagas' }}" title="Vagas" {% if nav == 'vagas' %}aria-current="page"{% endif %}>{{ icon('vagas') }} <span>Vagas</span></a>
+      <a href="/alertas" class="{{ 'on' if nav == 'alertas' }}" title="Alertas" {% if nav == 'alertas' %}aria-current="page"{% endif %}>{{ icon('alertas') }} <span>Alertas</span>{% if alert_pending %}<b class="badge" aria-label="{{ alert_pending }} vagas novas casaram com seus alertas">{{ alert_pending }}</b>{% endif %}</a>
       <a href="/pipeline" class="{{ 'on' if nav == 'pipeline' }}" title="Pipeline" {% if nav == 'pipeline' %}aria-current="page"{% endif %}>{{ icon('pipeline') }} <span>Pipeline</span></a>
       <a href="/curriculos" class="{{ 'on' if nav == 'curriculos' }}" title="Currículos" {% if nav == 'curriculos' %}aria-current="page"{% endif %}>{{ icon('curriculos') }} <span>Currículos</span></a>
+      <a href="/leituras" class="{{ 'on' if nav == 'leituras' }}" title="Leituras" {% if nav == 'leituras' %}aria-current="page"{% endif %}>{{ icon('leituras') }} <span>Leituras</span></a>
       <a href="/metricas" class="{{ 'on' if nav == 'metricas' }}" title="Métricas" {% if nav == 'metricas' %}aria-current="page"{% endif %}>{{ icon('metricas') }} <span>Métricas</span></a>
       <a href="/roadmap" class="{{ 'on' if nav == 'roadmap' }}" title="Roadmap" {% if nav == 'roadmap' %}aria-current="page"{% endif %}>{{ icon('roadmap') }} <span>Roadmap</span></a>
       <a href="/perfil" class="{{ 'on' if nav == 'perfil' }}" title="Perfil" {% if nav == 'perfil' %}aria-current="page"{% endif %}>{{ icon('perfil') }} <span>Perfil</span></a>
@@ -62,7 +64,7 @@
     </div>
   </nav>
 
-  <main class="main" id="conteudo-principal" tabindex="-1" {% if nav in ('painel', 'vagas') %}data-reload-on-collect{% endif %}>
+  <main class="main" id="conteudo-principal" tabindex="-1" {% if nav in ('painel', 'vagas', 'alertas') %}data-reload-on-collect{% endif %}{% if nav == 'leituras' %} data-reload-on-reading{% endif %}>
     <header class="topbar">
       <div class="topbar-inner{{ ' wide' if wide }}">
         <div class="grow">

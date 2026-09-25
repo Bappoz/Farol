@@ -105,13 +105,34 @@
           <a class="btn btn-sm" href="/curriculos/{{ item.id }}/imprimir">{{ icon('print') }}</a>
         </div>
         {% endfor %}
-        <form method="post" action="/curriculos">
-          <input type="hidden" name="job_id" value="{{ job.id }}">
+        <form method="post" action="/vagas/{{ job.id }}/curriculo">
+          <div class="field" style="margin:0 0 8px">
+            <label for="lang-vaga">Idioma</label>
+            <select id="lang-vaga" name="lang">
+              <option value="pt">Português</option>
+              <option value="en">English</option>
+            </select>
+          </div>
           <button class="btn {{ 'btn-primary' if not resumes }}" style="width:100%; justify-content:center">
             {{ icon('curriculos') }} Gerar currículo direcionado
           </button>
+          {% if ai_ready %}
+          <button class="btn btn-primary" name="ia" value="1" style="width:100%; justify-content:center; margin-top:8px">
+            {{ icon('star') }} Gerar e revisar com {{ assistente.label }}
+          </button>
+          {% endif %}
         </form>
-        <p class="small faint" style="margin-top:8px">Monta a partir do seu perfil, colocando na frente o que esta vaga pede. Nada é inventado.</p>
+        <p class="small faint" style="margin-top:8px">
+          Monta a partir do seu perfil, colocando na frente o que esta vaga pede. Nada é inventado.
+          {% if ai_ready %}
+            A revisão reescreve resumo, marcadores e carta olhando para o anúncio — e continua
+            proibida de inventar experiência. Confira cada linha antes de enviar.
+            {% if assistente.provider == 'local' %}Com modelo local, a geração pode levar alguns minutos.{% endif %}
+          {% else %}
+            Um assistente de IA (na nuvem ou <a href="/ajustes">local, na sua máquina</a>) pode revisar o
+            texto depois — o app funciona inteiro sem ele.
+          {% endif %}
+        </p>
         <form method="post" action="/curriculos/arquivo" enctype="multipart/form-data" style="margin-top:10px">
           <input type="hidden" name="job_id" value="{{ job.id }}">
           <div class="field" style="margin:0">

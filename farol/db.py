@@ -34,6 +34,23 @@ BUILTIN_SOURCES = [
     ("vagasbr", "Vagas BR (GitHub)", "builtin", ""),
 ]
 
+# Feeds de artigo técnico sugeridos (issue #9). Entram **desligados**: coleta de
+# leitura é opt-in, e ligar feed sem o usuário pedir seria tráfego de rede que ele
+# não autorizou. Todos publicam RSS/Atom público e são do próprio autor do texto —
+# o Farol guarda título, link e o resumo que o feed já expõe, nada além disso.
+BUILTIN_FEEDS = [
+    ("hn-frontpage", "Hacker News — capa", "https://hnrss.org/frontpage"),
+    ("devto", "DEV Community", "https://dev.to/feed"),
+    ("github-blog", "GitHub Blog", "https://github.blog/feed/"),
+    ("stackoverflow-blog", "Stack Overflow Blog", "https://stackoverflow.blog/feed/"),
+    ("mdn-blog", "MDN Blog", "https://developer.mozilla.org/en-US/blog/rss.xml"),
+    ("web-dev", "web.dev", "https://web.dev/static/blog/feed.xml"),
+    ("go-blog", "The Go Blog", "https://go.dev/blog/feed.atom"),
+    ("rust-blog", "Rust Blog", "https://blog.rust-lang.org/feed.xml"),
+    ("martin-fowler", "Martin Fowler", "https://martinfowler.com/feed.atom"),
+    ("aws-architecture", "AWS Architecture Blog", "https://aws.amazon.com/blogs/architecture/feed/"),
+]
+
 DEFAULT_SETTINGS = {
     "weekly_goal": "5",
     "min_score": "35",
@@ -44,10 +61,23 @@ DEFAULT_SETTINGS = {
     # aviso do desktop quando a coleta traz vaga nova com fit alto (precisa de notify-send)
     "notify_new_jobs": "",
     "notify_min_score": "70",
+    # provedor do assistente: '' (nenhum) | anthropic | local.  Vazio com chave
+    # gravada continua valendo como 'anthropic' — ver ai.provider(), que é o que
+    # mantém funcionando quem configurou a chave antes deste ajuste existir.
+    "ai_provider": "",
     "anthropic_api_key": "",
     "anthropic_model": "claude-sonnet-5",
+    # servidor de modelo local que o próprio usuário subiu (Ollama, LM Studio,
+    # llama.cpp, Jan). O app nunca instala nem baixa nada: só conversa com o que
+    # já está no ar, e só em loopback ou rede privada (localai.resolve_endpoint).
+    "local_ai_url": "http://127.0.0.1:11434",
+    "local_ai_model": "",
     "exclude_keywords": "senior, sênior, staff, principal, lead, tech lead, head of",
     "region_preference": "brazil",  # brazil | latam | worldwide
+    # leituras: quantos dias de artigo ficam guardados e a partir de quando o
+    # item é mostrado como possivelmente desatualizado
+    "reading_keep_days": "60",
+    "reading_stale_days": "365",
 }
 
 
@@ -247,6 +277,11 @@ def bootstrap() -> None:
             conn.execute(
                 "INSERT OR IGNORE INTO sources (id, label, kind, url) VALUES (?, ?, ?, ?)",
                 (sid, label, kind, url),
+            )
+        for fid, label, url in BUILTIN_FEEDS:
+            conn.execute(
+                "INSERT OR IGNORE INTO feeds (id, label, url, enabled) VALUES (?, ?, ?, 0)",
+                (fid, label, url),
             )
         count = conn.execute("SELECT COUNT(*) AS n FROM searches").fetchone()["n"]
         if not count:

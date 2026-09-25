@@ -64,6 +64,14 @@ def _collect() -> int:
     if report.get("expired"):
         resumo += f" {report['expired']} saíram do ar e foram marcadas como expiradas."
     print(resumo)
+
+    # `farol atualizar` agendado no cron é justamente o caso em que ninguém está
+    # olhando a tela: os alertas precisam aparecer aqui também
+    for hit in report.get("alerts") or []:
+        print(f"alerta {hit['alert']:<20} {hit['score']:>3} · {hit['title']} — "
+              f"{hit['company'] or 'empresa não informada'}")
+    if report.get("alerts_error"):
+        print(f"alertas não puderam ser avaliados: {report['alerts_error']}")
     return 0
 
 

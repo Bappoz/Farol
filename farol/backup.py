@@ -25,7 +25,10 @@ FILES_PREFIX = "curriculos/"
 
 # Tabelas restauradas na íntegra, na ordem em que precisam ser gravadas: quem
 # tem chave estrangeira vem depois de quem é referenciado.
-TABLES = ("applications", "events", "resumes", "learning", "searches")
+# `alerts` e `feeds` entram porque são configuração que a pessoa escreveu. O que
+# fica de fora é o que se refaz sozinho: as vagas, os artigos de leitura e os
+# casamentos de alerta, que apontam para ids de vaga que não viajam no arquivo.
+TABLES = ("applications", "events", "resumes", "learning", "searches", "alerts", "feeds")
 
 # Chaves de ajuste que não viajam: a do modelo é do ambiente, e a da API é
 # credencial — backup que carrega segredo vira segredo espalhado por aí.
@@ -130,6 +133,17 @@ def restore(dados: dict[str, Any], arquivos: dict[str, bytes] | None = None) -> 
             conn.execute(f"DELETE FROM {table}")
         for table in TABLES:
             resumo["tabelas"][table] = _insert(conn, table, dados.get(table) or [])
+
+        # o catálogo embutido de feeds volta desligado depois da limpeza: backup
+        # de uma versão anterior não traz a chave `feeds`, e sem isto a tela de
+        # Leituras ficaria vazia até o próximo reinício do app
+        for fid, label, url in db.BUILTIN_FEEDS:
+            conn.execute(
+                "INSERT OR IGNORE INTO feeds (id, label, url, enabled) VALUES (?, ?, ?, 0)",
+                (fid, label, url),
+            )
+        # artigo de feed que não existe mais não tem tela onde aparecer
+        conn.execute("DELETE FROM articles WHERE feed NOT IN (SELECT id FROM feeds)")
 
         perfil = dados.get("profile") or {}
         campos = [campo for campo in perfil if campo not in ("id", "updated_at")]

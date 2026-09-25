@@ -32,6 +32,30 @@
 </div>
 {% endif %}
 
+{% if alert_digest %}
+<div class="card" style="margin-top:14px">
+  <div class="card-head">
+    <b>{{ icon('alertas', 14) }} Seus alertas acharam {{ alert_pending }} vaga(s)</b>
+    <a class="faint small" href="/alertas">ver todas</a>
+  </div>
+  <div class="card-body tight">
+    <div class="table-wrap"><table class="data">
+      <tbody>
+        {% for hit in alert_digest %}
+        <tr>
+          <td>
+            <a href="/vagas/{{ hit.job_id }}"><b>{{ hit.title }}</b></a>
+            <div class="faint small">{{ hit.company or 'empresa não informada' }} · alerta “{{ hit.alert }}”</div>
+          </td>
+          <td class="nowrap" style="text-align:right"><span class="chip accent">{{ hit.score }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+</div>
+{% endif %}
+
 <div class="grid c4" style="margin-top:14px">
   <div class="card stat">
     <div class="k">Candidaturas ativas</div>

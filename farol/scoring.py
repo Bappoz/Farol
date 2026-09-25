@@ -21,6 +21,26 @@ from . import skills as sk
 WORK_MODES = ["remoto", "hibrido", "presencial"]
 WORK_MODE_LABELS = {"remoto": "Remoto", "hibrido": "Híbrido", "presencial": "Presencial"}
 
+# Nível de entrada reconhecido por termo no título ou na descrição. Fonte única:
+# a lista de vagas monta SQL a partir daqui e o alerta compara em Python sobre a
+# linha já lida. Duas listas separadas divergiriam, e o alerta passaria a avisar
+# de vaga que o filtro da tela não mostra.
+LEVELS = ["estagio", "entrada"]
+LEVEL_LABELS = {"estagio": "Estágio e trainee", "entrada": "Entrada (inclui júnior)"}
+LEVEL_TERMS: dict[str, tuple[str, ...]] = {
+    "estagio": ("estag", "estágio", "intern", "trainee"),
+    "entrada": ("estag", "estágio", "intern", "trainee", "junior", "júnior", "entry level"),
+}
+
+
+def level_matches(job: dict[str, Any], level: str) -> bool:
+    """A vaga é do nível pedido? Nível vazio aceita qualquer vaga."""
+    termos = LEVEL_TERMS.get(level)
+    if not termos:
+        return True
+    texto = f"{job.get('title') or ''} {job.get('description') or ''}".lower()
+    return any(termo in texto for termo in termos)
+
 # as fontes só marcam remote:boolean — híbrido só aparece se o texto disser
 HYBRID_MARKERS = ["hibrido", "hibrida", "hybrid"]
 

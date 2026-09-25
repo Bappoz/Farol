@@ -72,7 +72,16 @@
           <button class="btn btn-sm" formaction="/curriculos/{{ resume.id }}/ia" name="acao" value="resumo">
             {{ icon('star') }} Revisar resumo com IA{{ ' (em inglês)' if lang == 'en' }}
           </button>
+          {% if resume.job_id %}
+          <button class="btn btn-sm btn-primary" formaction="/curriculos/{{ resume.id }}/ia" name="acao" value="gerar"
+                  data-confirm="Reescrever resumo, marcadores e carta para esta vaga? O texto atual do resumo é substituído.">
+            {{ icon('star') }} Revisar tudo para a vaga
+          </button>
+          {% endif %}
         </div>
+        <p class="small faint" style="margin-top:6px; text-align:right">
+          Quem escreve: {{ assistente.label }}{% if assistente.model %} · <span class="mono">{{ assistente.model }}</span>{% endif %}
+        </p>
         {% endif %}
       </div>
     </div>

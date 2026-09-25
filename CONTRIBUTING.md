@@ -65,6 +65,11 @@ Ao corrigir um defeito, escreva primeiro o teste que falha por causa dele.
 
 ## Adicionar uma fonte de vagas
 
+**Antes do código, o critério:** o Farol só coleta de portal cujo `robots.txt`
+permita, ou que ofereça API ou feed público para este uso. Fonte proibida ou que
+só funcione raspando HTML não entra, por mais cobertura que tenha — o raciocínio
+completo está em [`docs/decisoes/0001-linkedin-como-fonte.md`](docs/decisoes/0001-linkedin-como-fonte.md).
+
 Para um portal que publica RSS ou Atom, nada de código é necessário: a URL do
 feed pode ser cadastrada em Ajustes.
 
@@ -83,6 +88,10 @@ Para um portal com API própria:
 Respeite os termos de uso do portal. O Farol se identifica honestamente pelo
 `User-Agent` e mantém uma pausa entre requisições ao mesmo servidor; nenhuma
 contribuição deve remover qualquer um dos dois.
+
+Feed de **artigo** (não de vaga) é outra coisa: entra no catálogo de Leituras, em
+`db.BUILTIN_FEEDS`, e sempre desligado. Os critérios estão em
+[`docs/decisoes/0002-agregador-de-leituras.md`](docs/decisoes/0002-agregador-de-leituras.md).
 
 ## Alterar o banco de dados
 

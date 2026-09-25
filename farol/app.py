@@ -30,11 +30,14 @@ from . import (
     __version__,
     agenda,
     ai,
+    alerts,
     collect,
     db,
     insights,
+    localai,
     markup,
     pdfs,
+    reading,
     roadmap,
     scoring,
     skills,
@@ -43,6 +46,9 @@ from . import (
     backup as backup_mod,
 )
 from . import resume as resume_mod
+
+# `sources` colide com a variável local das rotas que listam fontes do banco
+from .sources import policy as source_policy
 
 PKG_DIR = Path(__file__).resolve().parent
 
@@ -58,22 +64,17 @@ MAX_BACKUP_BYTES = 60 * 1024 * 1024
 # estados que a listagem oferece como filtro. 'expirada' entra aqui para o
 # usuário poder revisitar o que saiu do ar, mas nunca é o padrão.
 JOB_LIST_STATES = ("novo", "descartada", "expirada")
+
+# O SQL do filtro de nível nasce da mesma lista que o alerta usa em Python
+# (scoring.LEVEL_TERMS): manter as duas escritas à mão era garantir que um dia
+# divergissem. Os termos são constantes do código, nunca entrada do usuário —
+# por isso podem ser interpolados.
 JOB_LEVEL_FILTERS = {
-    "estagio": (
-        "LOWER(title) LIKE '%estag%' OR LOWER(description) LIKE '%estag%' "
-        "OR LOWER(title) LIKE '%estágio%' OR LOWER(description) LIKE '%estágio%' "
-        "OR LOWER(title) LIKE '%intern%' OR LOWER(description) LIKE '%intern%' "
-        "OR LOWER(title) LIKE '%trainee%' OR LOWER(description) LIKE '%trainee%'"
-    ),
-    "entrada": (
-        "LOWER(title) LIKE '%estag%' OR LOWER(description) LIKE '%estag%' "
-        "OR LOWER(title) LIKE '%estágio%' OR LOWER(description) LIKE '%estágio%' "
-        "OR LOWER(title) LIKE '%intern%' OR LOWER(description) LIKE '%intern%' "
-        "OR LOWER(title) LIKE '%trainee%' OR LOWER(description) LIKE '%trainee%' "
-        "OR LOWER(title) LIKE '%junior%' OR LOWER(description) LIKE '%junior%' "
-        "OR LOWER(title) LIKE '%júnior%' OR LOWER(description) LIKE '%júnior%' "
-        "OR LOWER(title) LIKE '%entry level%' OR LOWER(description) LIKE '%entry level%'"
-    ),
+    nivel: " OR ".join(
+        f"LOWER(title) LIKE '%{termo}%' OR LOWER(description) LIKE '%{termo}%'"
+        for termo in termos
+    )
+    for nivel, termos in scoring.LEVEL_TERMS.items()
 }
 
 JOB_LIST_COLUMNS = """id, source, title, company, url, apply_url, location, remote, work_mode,
@@ -141,7 +142,10 @@ def render(request: Request, template: str, status_code: int = 200, **context: A
         "msg": request.query_params.get("msg", ""),
         "tone": request.query_params.get("tone", "ok"),
         "nav": context.pop("nav", ""),
-        "ai_ready": bool((settings.get("anthropic_api_key") or "").strip()),
+        "assistente": ai.describe(),
+        "ai_ready": ai.available(),
+        # contador do menu: quantos casamentos de alerta ainda não foram lidos
+        "alert_pending": alerts.pending_count(),
         # entra na URL de app.css e app.js: sem isso o navegador serve o arquivo
         # antigo do cache depois de o usuário atualizar o aplicativo
         "assets": ASSETS_VERSION,
@@ -271,6 +275,8 @@ def dashboard(request: Request) -> HTMLResponse:
         max_demand=max_demand,
         last_run=last_run,
         profile_complete=profile_complete,
+        # o painel mostra o topo do resumo; a tela de Alertas tem o resto
+        alert_digest=alerts.digest(limit=5),
     )
 
 
@@ -467,6 +473,109 @@ async def job_state(request: Request, job_id: int) -> RedirectResponse:
         return go(back, "Estado de vaga desconhecido.", "warn")
     db.execute("UPDATE jobs SET state = ? WHERE id = ?", (state, job_id))
     return go(back, "Vaga descartada." if state == "descartada" else "Vaga restaurada.")
+
+
+@app.post("/vagas/{job_id}/curriculo")
+async def job_resume(request: Request, job_id: int) -> RedirectResponse:
+    """Monta o currículo dirigido à vaga — com a IA quando houver uma configurada.
+
+    Sem assistente, o resultado é o mesmo de sempre: `resume.build` reordenando o
+    seu perfil. Com assistente, o rascunho ainda é o do `build` e o modelo só
+    reescreve por cima — assim uma falha do modelo devolve um currículo completo,
+    e não uma página em branco.
+    """
+    form = await request.form()
+    row = db.one("SELECT * FROM jobs WHERE id = ?", (job_id,))
+    if row is None:
+        return go("/vagas", "Vaga não encontrada.", "warn")
+    job = job_dict(row)
+    profile = db.get_profile()
+    lang = "en" if str(form.get("lang") or "pt") == "en" else "pt"
+    usar_ia = bool(form.get("ia")) and ai.available()
+
+    data = resume_mod.build(profile, job)
+    letter = resume_mod.cover_letter(profile, job, lang)
+    nome = f"{job['title']} · {job['company']}"[:120] if job["company"] else job["title"][:120]
+    if lang == "en":
+        nome = f"{nome} (EN)"[:120]
+
+    falhas: list[str] = []
+    if usar_ia:
+        data, letter, falhas = await run_in_threadpool(
+            ai.tailor_for_job, data, letter, job, lang
+        )
+
+    application = db.one("SELECT id FROM applications WHERE job_id = ?", (job_id,))
+    resume_id = db.execute(
+        """INSERT INTO resumes (name, job_id, application_id, lang, template, data, letter)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (nome, job_id, application["id"] if application else None,
+         lang, resume_mod.DEFAULT_TEMPLATE, db.dumps(data), letter),
+    )
+    if not usar_ia:
+        return go(f"/curriculos/{resume_id}", "Currículo montado a partir do seu perfil.")
+    if falhas:
+        return go(f"/curriculos/{resume_id}",
+                  "Currículo criado, mas parte da IA falhou: " + "; ".join(falhas), "warn")
+    return go(f"/curriculos/{resume_id}",
+              f"Currículo dirigido à vaga, revisado por {ai.describe()['label']}. "
+              "Confira cada linha antes de enviar — a revisão é sugestão, não verdade.")
+
+
+# ------------------------------------------------------------------ alertas
+
+
+@app.get("/alertas", response_class=HTMLResponse)
+def alerts_page(request: Request) -> HTMLResponse:
+    return render(
+        request,
+        "alertas.html",
+        nav="alertas",
+        alert_list=alerts.all_alerts(),
+        digest=alerts.digest(),
+        levels=scoring.LEVEL_LABELS,
+        work_modes=scoring.WORK_MODE_LABELS,
+        regions=scoring.REGION_LABELS,
+    )
+
+
+@app.post("/alertas")
+async def alert_create(request: Request) -> RedirectResponse:
+    form = await request.form()
+    if not str(form.get("label") or "").strip() and not str(form.get("keywords") or "").strip():
+        return go("/alertas", "Dê um nome ou um termo ao alerta.", "warn")
+    alert_id = alerts.create(dict(form))
+    # o acervo que já está no banco entra como lido: um alerta novo não deve
+    # abrir com trezentas "novidades" de três semanas atrás
+    antigas = await run_in_threadpool(alerts.evaluate, None, seen=True)
+    casadas = len([hit for hit in antigas if hit["alert_id"] == alert_id])
+    return go("/alertas", f"Alerta criado. {casadas} vaga(s) já coletada(s) casam com ele — "
+                          "a partir daqui, só as novas viram aviso.")
+
+
+@app.post("/alertas/{alert_id}")
+async def alert_update(request: Request, alert_id: int) -> RedirectResponse:
+    form = await request.form()
+    acao = str(form.get("acao") or "salvar")
+    if alerts.get(alert_id) is None:
+        return go("/alertas", "Alerta não encontrado.", "warn")
+    if acao == "remover":
+        alerts.delete(alert_id)
+        return go("/alertas", "Alerta removido, junto com o histórico dele.")
+    if acao == "toggle":
+        alerts.toggle(alert_id)
+        return go("/alertas", "Alerta atualizado.")
+    if acao == "lido":
+        lidos = alerts.mark_seen(alert_id)
+        return go("/alertas", f"{lidos} item(ns) marcado(s) como lido(s).")
+    alerts.update(alert_id, dict(form))
+    return go("/alertas", "Alerta salvo. Ele passa a valer na próxima coleta.")
+
+
+@app.post("/alertas/lidos")
+def alerts_mark_all() -> RedirectResponse:
+    lidos = alerts.mark_seen()
+    return go("/alertas", f"{lidos} item(ns) marcado(s) como lido(s).")
 
 
 # ------------------------------------------------------------------ pipeline
@@ -927,6 +1036,19 @@ async def resume_ai(request: Request, resume_id: int) -> RedirectResponse:
             db.execute("UPDATE resumes SET letter=?, updated_at=datetime('now') WHERE id=?",
                        (text, resume_id))
             msg = "Carta revisada pela IA."
+        elif action == "gerar":
+            # as três etapas de uma vez, e uma que falha não leva as outras junto
+            dados, carta, falhas = ai.tailor_for_job(
+                item["data"], item["letter"], job, item["lang"]
+            )
+            db.execute(
+                "UPDATE resumes SET data=?, letter=?, updated_at=datetime('now') WHERE id=?",
+                (db.dumps(dados), carta, resume_id),
+            )
+            msg = ("Currículo revisado de ponta a ponta." if not falhas
+                   else "Revisão parcial — falhou em: " + "; ".join(falhas))
+            if falhas:
+                return go(f"/curriculos/{resume_id}", msg, "warn")
         else:
             msg = "Ação desconhecida."
     except Exception as exc:  # noqa: BLE001 — falha da IA vira aviso, não erro 500
@@ -1010,6 +1132,95 @@ async def roadmap_track(request: Request) -> RedirectResponse:
     return go("/roadmap", "Plano atualizado.")
 
 
+# ----------------------------------------------------------------- leituras
+
+
+@app.get("/leituras", response_class=HTMLResponse)
+def reading_page(request: Request) -> HTMLResponse:
+    params = request.query_params
+    filtros = {
+        "feed": params.get("feed") or "",
+        "skill": params.get("skill") or "",
+        "q": (params.get("q") or "").strip(),
+        "estado": params.get("estado") or "nao-lidos",
+        "meu": params.get("meu") or "",
+    }
+    artigos = reading.listing(
+        unread_only=filtros["estado"] != "todos",
+        feed=filtros["feed"],
+        skill=filtros["skill"],
+        mine_only=bool(filtros["meu"]),
+        term=filtros["q"],
+    )
+    return render(
+        request,
+        "leituras.html",
+        nav="leituras",
+        artigos=artigos,
+        feeds=reading.feeds(),
+        contagem=reading.counts(),
+        atalhos=reading.top_skills(),
+        filtros=filtros,
+        reading_state=reading.status(),
+        stale_days=reading.stale_days(),
+    )
+
+
+@app.post("/leituras/atualizar")
+async def reading_refresh(request: Request) -> RedirectResponse:
+    form = await request.form()
+    if not reading.feeds(only_enabled=True):
+        return go("/leituras", "Nenhum feed ligado. Escolha os seus na lista ao lado.", "warn")
+    resultado = reading.start([str(form["feed"])] if form.get("feed") else None)
+    if resultado["verdict"] == "em-curso":
+        return go("/leituras", "Já tem uma atualização rodando.")
+    return go("/leituras", "Buscando artigos nos feeds — a página atualiza sozinha ao terminar.")
+
+
+@app.get("/leituras/status")
+def reading_status() -> JSONResponse:
+    return JSONResponse(reading.status())
+
+
+@app.post("/leituras/feeds")
+async def reading_feeds(request: Request) -> RedirectResponse:
+    form = await request.form()
+    acao = str(form.get("acao") or "")
+    feed_id = str(form.get("id") or "")
+    if acao == "adicionar":
+        try:
+            reading.add_feed(str(form.get("label") or ""), str(form.get("url") or ""))
+        except ValueError:
+            return go("/leituras", "Informe a URL do feed.", "warn")
+        return go("/leituras", "Feed adicionado e ligado.")
+    if not feed_id:
+        return go("/leituras", "Feed não encontrado.", "warn")
+    if acao == "toggle":
+        reading.toggle_feed(feed_id)
+        return go("/leituras", "Feed atualizado.")
+    if acao == "remover":
+        reading.remove_feed(feed_id)
+        return go("/leituras", "Feed removido, junto com os artigos que ele trouxe.")
+    return go("/leituras", "Ação desconhecida.", "warn")
+
+
+@app.post("/leituras/{article_id}/lido")
+async def reading_toggle_read(request: Request, article_id: int) -> RedirectResponse:
+    form = await request.form()
+    # o "voltar" preserva os filtros da tela, mas só dentro dela: aceitar
+    # qualquer destino transformaria o formulário em redirecionamento aberto
+    back = str(form.get("back") or "")
+    if not back.startswith("/leituras"):
+        back = "/leituras"
+    reading.mark_read(article_id, read=str(form.get("lido") or "1") == "1")
+    return go(back)
+
+
+@app.post("/leituras/lidos")
+def reading_mark_all() -> RedirectResponse:
+    return go("/leituras", f"{reading.mark_all_read()} artigo(s) marcado(s) como lido(s).")
+
+
 # ------------------------------------------------------------------ perfil
 
 
@@ -1088,6 +1299,7 @@ async def profile_save(request: Request) -> RedirectResponse:
 def settings_page(request: Request) -> HTMLResponse:
     sources = [dict(r) for r in db.query("SELECT * FROM sources ORDER BY kind, label")]
     searches = [dict(r) for r in db.query("SELECT * FROM searches ORDER BY id")]
+    maquina = localai.hardware()
     return render(
         request,
         "settings.html",
@@ -1096,17 +1308,49 @@ def settings_page(request: Request) -> HTMLResponse:
         searches=searches,
         db_path=str(db.db_path()),
         total_jobs=db.one("SELECT COUNT(*) AS n FROM jobs")["n"],
+        providers=ai.PROVIDERS,
+        policy=source_policy,
+        feeds_cadastrados={row["url"] for row in db.query("SELECT url FROM sources WHERE kind = 'rss'")},
+        maquina=maquina,
+        catalogo=localai.recommendations(maquina["budget_gb"]),
+        sugerido=localai.suggested(maquina["budget_gb"]),
     )
+
+
+@app.post("/ajustes/ia/modelos")
+async def settings_local_models(request: Request) -> JSONResponse:
+    """Pergunta ao servidor local quais modelos ele tem. Nunca instala nada.
+
+    A validação do endereço roda aqui também, e não só ao salvar: é o único
+    ponto por onde o usuário descobre que digitou um endereço que sairia da rede
+    antes de mandar o currículo por ele.
+    """
+    try:
+        payload = await request.json()
+    except (ValueError, UnicodeDecodeError):
+        payload = {}
+    endpoint = str((payload or {}).get("endpoint") or "").strip()
+    resultado = await run_in_threadpool(localai.probe, endpoint or None)
+    return JSONResponse(resultado)
 
 
 @app.post("/ajustes")
 async def settings_save(request: Request) -> RedirectResponse:
     form = await request.form()
     for key in ("weekly_goal", "min_score", "region_preference", "keywords",
-                "exclude_keywords", "anthropic_api_key", "anthropic_model", "theme",
-                "refresh_cooldown_min", "notify_min_score"):
+                "exclude_keywords", "ai_provider", "anthropic_api_key", "anthropic_model",
+                "local_ai_model", "theme", "refresh_cooldown_min", "notify_min_score",
+                "reading_keep_days", "reading_stale_days"):
         if key in form:
             db.set_setting(key, str(form.get(key) or ""))
+    # o endereço do servidor local passa pela validação antes de ser gravado:
+    # guardar um endereço público seria guardar um vazamento agendado
+    if "local_ai_url" in form:
+        bruto = str(form.get("local_ai_url") or "").strip()
+        try:
+            db.set_setting("local_ai_url", localai.resolve_endpoint(bruto or localai.DEFAULT_ENDPOINT))
+        except localai.LocalAIError as exc:
+            return go("/ajustes", f"Endereço do modelo local recusado: {exc}", "warn")
     # checkbox não é enviado quando desmarcado: só grava se o bloco veio no formulário
     if "notify_min_score" in form:
         db.set_setting("notify_new_jobs", "1" if form.get("notify_new_jobs") else "")

@@ -54,7 +54,13 @@ fi
 
 step "1/5 · ambiente Python ($("$PYTHON" -V 2>&1))"
 if command -v uv >/dev/null 2>&1; then
-  uv venv --python "$PYTHON" "$VENV" >/dev/null
+  # `--allow-existing` reaproveita o ambiente que já está aqui. Sem ele, o `uv`
+  # pergunta se pode substituir — e pergunta trava instalador que roda sem
+  # terminal: `farol update` chama este script com a saída capturada, o `uv`
+  # sai com erro em vez de perguntar, o `set -e` aborta em 1/5 e o atalho do
+  # sistema (com os ícones) nunca é atualizado. Era exatamente o que deveria
+  # acontecer ali. Recriar o ambiente do zero também não fazia falta a ninguém.
+  uv venv --allow-existing --python "$PYTHON" "$VENV" >/dev/null
   uv pip install --quiet --python "$VENV/bin/python" -e "$APP_DIR"
 else
   "$PYTHON" -m venv "$VENV"

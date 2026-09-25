@@ -111,6 +111,78 @@
         </div>
       </div>
     </div>
+
+    <div class="card">
+      <div class="card-head">
+        <b>Portais que não entram, e por quê</b>
+        <span class="faint small">a ausência é decisão, não defeito</span>
+      </div>
+      <div class="card-body">
+        <p class="small muted" style="margin-top:0">{{ policy.CRITERION }}</p>
+
+        {% for portal in policy.NOT_COLLECTED %}
+        <div class="recusado">
+          <div class="row" style="gap:8px; align-items:baseline">
+            <b>{{ portal.name }}</b>
+            <span class="chip bad">não coletado</span>
+            <span class="faint small">{{ portal.reason }}</span>
+          </div>
+          <p class="small muted">{{ portal.evidence }}</p>
+          <p class="small faint">
+            Verificado em {{ portal.checked }} ·
+            <a href="{{ portal.doc }}" target="_blank" rel="noopener noreferrer">decisão completa</a> ·
+            <a href="{{ portal.issue }}" target="_blank" rel="noopener noreferrer">issue</a>
+          </p>
+        </div>
+        {% endfor %}
+
+        <div class="callout">
+          <b>Achou a vaga num desses portais? Cadastre à mão.</b>
+          <p class="small muted">
+            O Farol não coletar dali não impede nada: copie cargo, empresa e link para o
+            <a href="/pipeline">Pipeline</a> e a candidatura passa a contar igual às outras —
+            no funil, nas <a href="/metricas">Métricas</a> e no currículo direcionado. O que
+            você perde é só a pontuação automática, porque ela depende do texto do anúncio,
+            que o app não leu.
+          </p>
+          <p class="small muted" style="margin-bottom:0">
+            Se a vaga cita tecnologia que você ainda não tem, marque-a você mesmo no
+            <a href="/roadmap">Roadmap</a>: o cálculo de lacunas só enxerga o que foi coletado,
+            então vaga cadastrada à mão não entra nele sozinha.
+          </p>
+        </div>
+
+        <div class="divider" style="margin:14px 0"></div>
+
+        <b class="small">Feeds abertos que cobrem parte do mesmo terreno</b>
+        <p class="small faint">Todos verificados em {{ policy.FEEDS_CHECKED }}. Um clique cadastra.</p>
+        <div class="table-wrap"><table class="data">
+          <tbody>
+            {% for feed in policy.SUGGESTED_FEEDS %}
+            <tr>
+              <td>
+                <b>{{ feed.label }}</b>
+                <div class="faint small">{{ feed.note }}</div>
+                <div class="faint small mono">{{ feed.url }}</div>
+              </td>
+              <td class="nowrap" style="text-align:right">
+                {% if feed.url in feeds_cadastrados %}
+                  <span class="chip on">{{ icon('check', 12) }} já cadastrado</span>
+                {% else %}
+                <form method="post" action="/ajustes/fontes">
+                  <input type="hidden" name="acao" value="adicionar">
+                  <input type="hidden" name="label" value="{{ feed.label }}">
+                  <input type="hidden" name="url" value="{{ feed.url }}">
+                  <button class="btn btn-sm">{{ icon('plus', 13) }} Adicionar</button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table></div>
+      </div>
+    </div>
   </div>
 
   <div>
@@ -171,23 +243,125 @@
               é ignorado em silêncio — a coleta funciona igual.
             </div>
           </div>
+          <div class="grid c2">
+            <div class="field">
+              <label for="reading_keep_days">Leituras: dias de artigo guardados</label>
+              <input type="number" id="reading_keep_days" name="reading_keep_days" min="7" max="730"
+                     value="{{ settings.reading_keep_days }}">
+            </div>
+            <div class="field">
+              <label for="reading_stale_days">Leituras: avisar “desatualizado” após (dias)</label>
+              <input type="number" id="reading_stale_days" name="reading_stale_days" min="30" max="3650"
+                     value="{{ settings.reading_stale_days }}">
+            </div>
+          </div>
           <div class="row end"><button class="btn btn-primary">{{ icon('save') }} Salvar</button></div>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-head"><b>Assistente por IA (opcional)</b></div>
+        <div class="card-head">
+          <b>Assistente por IA (opcional)</b>
+          <span class="faint small">
+            {{ assistente.label }}{% if assistente.pending %} · {{ assistente.pending }}{% endif %}
+          </span>
+        </div>
         <div class="card-body">
           <div class="field">
-            <label for="anthropic_api_key">Chave da API Anthropic</label>
-            <input type="password" id="anthropic_api_key" name="anthropic_api_key"
-                   value="{{ settings.anthropic_api_key }}" placeholder="sk-ant-...">
-            <div class="help">Fica só no seu banco local ({{ db_path }}). Sem chave, o app funciona inteiro — só os botões de revisão de texto ficam ocultos.</div>
+            <label for="ai_provider">Quem escreve</label>
+            <select id="ai_provider" name="ai_provider" data-ai-provider>
+              {% for chave, info in providers.items() %}
+              <option value="{{ chave }}" {{ 'selected' if assistente.provider == chave }}>
+                {{ info.label }} — {{ info.hint }}
+              </option>
+              {% endfor %}
+            </select>
+            <div class="help">
+              Sem assistente o app funciona inteiro: pontuação, currículo e roadmap são
+              calculados aqui mesmo, sem acesso à rede. O assistente só reescreve texto
+              que já existe no seu perfil — ele não inventa experiência.
+            </div>
           </div>
-          <div class="field">
-            <label for="anthropic_model">Modelo</label>
-            <input type="text" id="anthropic_model" name="anthropic_model" value="{{ settings.anthropic_model }}">
-          </div>
+
+          <fieldset class="bloco-ia" data-ia-bloco="anthropic" {{ 'hidden' if assistente.provider != 'anthropic' }}>
+            <div class="field">
+              <label for="anthropic_api_key">Chave da API Anthropic</label>
+              <input type="password" id="anthropic_api_key" name="anthropic_api_key"
+                     value="{{ settings.anthropic_api_key }}" placeholder="sk-ant-...">
+              <div class="help">Fica só no seu banco local ({{ db_path }}) e nunca entra no backup.</div>
+            </div>
+            <div class="field">
+              <label for="anthropic_model">Modelo</label>
+              <input type="text" id="anthropic_model" name="anthropic_model" value="{{ settings.anthropic_model }}">
+            </div>
+          </fieldset>
+
+          <fieldset class="bloco-ia" data-ia-bloco="local" {{ 'hidden' if assistente.provider != 'local' }}>
+            <div class="field">
+              <label for="local_ai_url">Endereço do servidor que você subiu</label>
+              <input type="url" id="local_ai_url" name="local_ai_url"
+                     value="{{ settings.local_ai_url }}" placeholder="http://127.0.0.1:11434">
+              <div class="help">
+                Ollama usa <span class="mono">11434</span>, LM Studio <span class="mono">1234</span>,
+                <span class="mono">llama-server</span> e Jan costumam usar <span class="mono">8080</span>.
+                Só é aceito endereço de loopback ou de rede privada: o que sai daqui é o seu
+                currículo, e um endereço público o mandaria para fora sem aviso.
+              </div>
+            </div>
+            <div class="row">
+              <button type="button" class="btn btn-sm" data-ia-detectar>{{ icon('refresh', 13) }} Ver modelos instalados</button>
+              <span class="faint small">o app nunca baixa nem instala modelo — só lista o que o servidor responde</span>
+            </div>
+            <div class="sonda" data-ia-sonda hidden></div>
+            <div class="field" style="margin-top:12px">
+              <label for="local_ai_model">Modelo em uso</label>
+              <input type="text" id="local_ai_model" name="local_ai_model" list="modelos-locais"
+                     value="{{ settings.local_ai_model }}" placeholder="qwen2.5:7b">
+              <datalist id="modelos-locais" data-ia-lista></datalist>
+            </div>
+
+            <div class="divider" style="margin:14px 0"></div>
+
+            <p class="small" style="margin:0 0 8px">
+              {{ icon('cpu', 14) }}
+              {% if maquina.budget_gb %}
+                Esta máquina:
+                {% if maquina.ram_gb %}<b>{{ maquina.ram_gb }} GB</b> de RAM{% endif %}
+                {%- if maquina.vram_gb %} e <b>{{ maquina.vram_gb }} GB</b> de VRAM ({{ maquina.vram_source }}){% endif %}.
+                {% if sugerido %}O maior modelo da lista que cabe aqui é o
+                <span class="mono">{{ sugerido.name }}</span>.{% endif %}
+              {% else %}
+                Não consegui medir a memória desta máquina, então nada abaixo está marcado como
+                “cabe”. Confira o seu total de RAM antes de escolher.
+              {% endif %}
+            </p>
+            <div class="table-wrap"><table class="data">
+              <thead><tr><th>Modelo</th><th>Baixa</th><th>Pede</th><th></th></tr></thead>
+              <tbody>
+                {% for item in catalogo %}
+                <tr>
+                  <td>
+                    <span class="mono">{{ item.name }}</span>
+                    <div class="faint small">{{ item.nota }}</div>
+                  </td>
+                  <td class="nowrap muted">{{ item.size_gb }} GB</td>
+                  <td class="nowrap muted">{{ item.min_gb }} GB</td>
+                  <td class="nowrap">
+                    {% if item.fits %}<span class="chip on">cabe</span>
+                    {% elif item.fits is false %}<span class="chip">pesado aqui</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table></div>
+            <p class="small faint" style="margin-top:8px">
+              Com o Ollama instalado, baixar é <span class="mono">ollama pull &lt;modelo&gt;</span> e
+              subir o servidor é <span class="mono">ollama serve</span>. O Farol não roda
+              nenhum desses comandos por você — a integração é sua, e é por isso que ela é segura.
+            </p>
+          </fieldset>
+
           <div class="row end"><button class="btn">{{ icon('save') }} Salvar</button></div>
         </div>
       </div>

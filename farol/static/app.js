@@ -296,3 +296,120 @@ document.addEventListener("submit", (event) => {
 document.querySelectorAll("[data-autosubmit]").forEach((element) => {
   element.addEventListener("change", () => element.form.submit());
 });
+
+// Busca de artigos em segundo plano. Mesmo desenho do observador da coleta, com
+// uma diferença que importa: aqui a rodada só começa por pedido explícito, então
+// não há o caso de "pode estar prestes a começar".
+(function readingWatcher() {
+  const page = document.querySelector("[data-reload-on-reading]");
+  if (!page) return;
+
+  let sawRunning = false;
+
+  async function check() {
+    let state;
+    try {
+      const response = await fetch("/leituras/status", { cache: "no-store" });
+      state = await response.json();
+    } catch {
+      return; // servidor reiniciando: a página segue utilizável como está
+    }
+    if (state.running) {
+      sawRunning = true;
+      return window.setTimeout(check, 2000);
+    }
+    if (!sawRunning) return;
+
+    const url = new URL(window.location.href);
+    const novos = state.report ? state.report.new : 0;
+    const falhas = state.report ? state.report.feeds.filter((f) => f.status !== "ok") : [];
+    url.searchParams.set(
+      "msg",
+      state.error
+        ? `A busca falhou: ${state.error}`
+        : `${novos} artigo(s) novo(s)` +
+          (falhas.length ? ` · falharam: ${falhas.map((f) => f.label).join(", ")}` : "."),
+    );
+    url.searchParams.set("tone", state.error || falhas.length ? "warn" : "ok");
+    window.location.replace(url.toString());
+  }
+
+  check();
+})();
+
+// Ajustes → assistente de IA: troca do provedor e consulta ao servidor local.
+// O botão pergunta ao servidor quais modelos ele tem; nada é instalado nem
+// baixado daqui, e a recusa de endereço público vem do próprio servidor do app.
+(function localAI() {
+  const seletor = document.querySelector("[data-ai-provider]");
+  if (!seletor) return;
+
+  const blocos = document.querySelectorAll("[data-ia-bloco]");
+  function sync() {
+    blocos.forEach((bloco) => {
+      bloco.hidden = bloco.dataset.iaBloco !== seletor.value;
+    });
+  }
+  seletor.addEventListener("change", sync);
+  sync();
+
+  const botao = document.querySelector("[data-ia-detectar]");
+  const sonda = document.querySelector("[data-ia-sonda]");
+  const lista = document.querySelector("[data-ia-lista]");
+  const campoUrl = document.querySelector("#local_ai_url");
+  if (!botao || !sonda) return;
+
+  botao.addEventListener("click", async () => {
+    sonda.hidden = false;
+    sonda.className = "sonda";
+    sonda.textContent = "Perguntando ao servidor…";
+    botao.disabled = true;
+    let dados;
+    try {
+      const response = await fetch("/ajustes/ia/modelos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: campoUrl ? campoUrl.value : "" }),
+      });
+      dados = await response.json();
+    } catch (erro) {
+      sonda.className = "sonda bad";
+      sonda.textContent = `Não consegui perguntar: ${erro}`;
+      botao.disabled = false;
+      return;
+    }
+    botao.disabled = false;
+
+    if (!dados.ok) {
+      sonda.className = "sonda bad";
+      sonda.textContent = dados.erro;
+      return;
+    }
+    if (lista) {
+      lista.innerHTML = "";
+      dados.models.forEach((modelo) => {
+        const opcao = document.createElement("option");
+        opcao.value = modelo.name;
+        opcao.label = [modelo.params, modelo.size_gb ? `${modelo.size_gb} GB` : ""]
+          .filter(Boolean)
+          .join(" · ");
+        lista.appendChild(opcao);
+      });
+    }
+    if (!dados.models.length) {
+      sonda.textContent = `${dados.endpoint} respondeu, mas não tem modelo instalado.`;
+      return;
+    }
+    sonda.innerHTML = `<b>${dados.models.length} modelo(s)</b> em ${dados.endpoint}:`;
+    const ul = document.createElement("ul");
+    dados.models.forEach((modelo) => {
+      const li = document.createElement("li");
+      const detalhe = [modelo.params, modelo.size_gb ? `${modelo.size_gb} GB` : ""]
+        .filter(Boolean)
+        .join(" · ");
+      li.textContent = detalhe ? `${modelo.name} — ${detalhe}` : modelo.name;
+      ul.appendChild(li);
+    });
+    sonda.appendChild(ul);
+  });
+})();

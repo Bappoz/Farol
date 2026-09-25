@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Alertas · Farol{% endblock %}
+{% block heading %}Alertas{% endblock %}
+{% block subheading %}Buscas guardadas que avisam quando entra vaga nova compatível{% endblock %}
+
+{% macro campos(prefixo, alerta) %}
+  <div class="grid c2">
+    <div class="field">
+      <label for="{{ prefixo }}-label">Nome do alerta</label>
+      <input type="text" id="{{ prefixo }}-label" name="label" value="{{ alerta.label if alerta else '' }}"
+             placeholder="Back-end júnior no Brasil" maxlength="60">
+    </div>
+    <div class="field">
+      <label for="{{ prefixo }}-keywords">Termos que a vaga precisa conter</label>
+      <input type="text" id="{{ prefixo }}-keywords" name="keywords" value="{{ alerta.keywords if alerta else '' }}"
+             placeholder="python backend" maxlength="120">
+      <div class="help">Todas as palavras, em qualquer ordem e qualquer posição do anúncio. Em branco aceita qualquer vaga.</div>
+    </div>
+  </div>
+  <div class="grid c2">
+    <div class="field">
+      <label for="{{ prefixo }}-level">Nível</label>
+      <select id="{{ prefixo }}-level" name="level">
+        <option value="">Qualquer nível</option>
+        {% for chave, rotulo in levels.items() %}
+        <option value="{{ chave }}" {{ 'selected' if alerta and alerta.level == chave }}>{{ rotulo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="{{ prefixo }}-region">Região aceita</label>
+      <select id="{{ prefixo }}-region" name="region">
+        <option value="">Qualquer região</option>
+        {% for chave, rotulo in regions.items() %}
+        <option value="{{ chave }}" {{ 'selected' if alerta and alerta.region == chave }}>{{ rotulo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="grid c2">
+    <div class="field">
+      <label for="{{ prefixo }}-mode">Modelo de trabalho</label>
+      <select id="{{ prefixo }}-mode" name="work_mode">
+        <option value="">Qualquer modelo</option>
+        {% for chave, rotulo in work_modes.items() %}
+        <option value="{{ chave }}" {{ 'selected' if alerta and alerta.work_mode == chave }}>{{ rotulo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="{{ prefixo }}-score">Fit mínimo</label>
+      <input type="number" id="{{ prefixo }}-score" name="min_score" min="0" max="100" step="5"
+             value="{{ alerta.min_score if alerta else 70 }}">
+    </div>
+  </div>
+  <div class="field">
+    <label class="row" style="gap:8px; cursor:pointer">
+      <input type="checkbox" name="notify" value="1" style="width:auto"
+             {{ 'checked' if (alerta.notify if alerta else 1) }}>
+      <span>Avisar também no desktop</span>
+    </label>
+    <div class="help">
+      Desmarcado, o alerta continua valendo e o resumo aparece aqui — só o aviso do
+      sistema fica quieto. O aviso usa o <span class="mono">notify-send</span> da sua sessão;
+      sem ele instalado, é ignorado em silêncio.
+    </div>
+  </div>
+{% endmacro %}
+
+{% block actions %}
+<form method="post" action="/vagas/atualizar">
+  <input type="hidden" name="back" value="/alertas">
+  <button class="btn btn-sm">{{ icon('refresh', 13) }} Atualizar vagas</button>
+</form>
+{% endblock %}
+
+{% block content %}
+<div class="grid side">
+  <div>
+    <div class="card">
+      <div class="card-head">
+        <b>Novidades</b>
+        <span class="faint small">
+          {% if digest %}{{ digest|length }} vaga(s) casaram desde a última vez que você olhou{% else %}nada novo{% endif %}
+        </span>
+      </div>
+      <div class="card-body tight">
+        {% if digest %}
+        <div class="table-wrap"><table class="data">
+          <thead><tr><th>Vaga</th><th>Alerta</th><th>Fit</th></tr></thead>
+          <tbody>
+            {% for hit in digest %}
+            <tr>
+              <td>
+                <a href="/vagas/{{ hit.job_id }}"><b>{{ hit.title }}</b></a>
+                <div class="faint small">{{ hit.company or 'empresa não informada' }} · {{ hit.source }}</div>
+              </td>
+              <td class="muted small">{{ hit.alert }}</td>
+              <td class="nowrap"><span class="chip accent">{{ hit.score }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table></div>
+        <div class="row end" style="padding:12px 14px; border-top:1px solid var(--border)">
+          <form method="post" action="/alertas/lidos">
+            <button class="btn btn-sm">{{ icon('check', 13) }} Marcar tudo como lido</button>
+          </form>
+        </div>
+        {% else %}
+        <div class="card-body">
+          <p class="faint small" style="margin:0">
+            {% if alert_list %}
+              Nenhuma vaga nova casou com os seus alertas desde a última leitura. O casamento
+              acontece no fim de cada coleta — nenhuma requisição extra é feita por causa disto.
+            {% else %}
+              Você ainda não tem alerta nenhum. Crie um ao lado: ele guarda a busca e passa a
+              avisar quando a coleta trouxer vaga nova que atenda a todos os critérios.
+            {% endif %}
+          </p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% for alerta in alert_list %}
+    <div class="card">
+      <div class="card-head">
+        <b>{{ alerta.label }}</b>
+        <span class="faint small">
+          {{ 'ativo' if alerta.enabled else 'pausado' }}
+          {% if alerta.last_hit_at %} · último casamento em {{ alerta.last_hit_at[:16] }}{% endif %}
+        </span>
+      </div>
+      <form method="post" action="/alertas/{{ alerta.id }}">
+        <div class="card-body">
+          {{ campos('a' ~ alerta.id, alerta) }}
+          <div class="row" style="justify-content:space-between; margin-top:4px">
+            <div class="row">
+              <button class="btn btn-sm" name="acao" value="toggle">
+                {{ 'Pausar' if alerta.enabled else 'Reativar' }}
+              </button>
+              <button class="btn btn-sm btn-quiet" name="acao" value="lido">Marcar este como lido</button>
+              <button class="btn btn-sm btn-quiet btn-danger" name="acao" value="remover"
+                      formnovalidate data-confirm="Remover o alerta “{{ alerta.label }}” e o histórico dele?">
+                {{ icon('trash', 13) }}
+              </button>
+            </div>
+            <button class="btn btn-sm btn-primary" name="acao" value="salvar">{{ icon('save', 13) }} Salvar</button>
+          </div>
+        </div>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-head"><b>Novo alerta</b></div>
+      <form method="post" action="/alertas">
+        <div class="card-body">
+          {{ campos('novo', none) }}
+          <div class="row end"><button class="btn btn-primary">{{ icon('plus') }} Criar alerta</button></div>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><b>Como funciona</b></div>
+      <div class="card-body">
+        <ul class="bullets small">
+          <li>O alerta <b>não busca nada por conta própria</b>. Ele compara o que a coleta normal
+            trouxe — a janela de descanso entre coletas continua sendo o único regulador de tráfego.</li>
+          <li>Cada vaga casa com cada alerta <b>uma única vez</b>. O mesmo anúncio reaparece em toda
+            coleta enquanto estiver no ar, e avisar de novo transformaria o alerta em ruído.</li>
+          <li>Alerta recém-criado começa com o acervo já marcado como lido: você vê quantas vagas
+            antigas casam, sem levar trinta avisos de uma vez.</li>
+          <li>Pausar para de casar. Remover apaga também o histórico daquele alerta.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

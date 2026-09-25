@@ -30,18 +30,22 @@ study next. No account, no cloud, no subscription.
 Farol is a desktop application that runs entirely on your own machine. The
 server listens on `127.0.0.1` only, data lives in a single SQLite file under
 your user directory, and nothing leaves the machine — except read-only requests
-to the job boards and, when you explicitly enable it, calls to the optional AI
-assistant.
+to the job boards, to any reading feeds you switch on and, when you explicitly
+enable it, calls to the optional AI assistant. That assistant can be a **model
+running on your own machine**, in which case not even those requests leave your
+network.
 
 | Screen | Purpose |
 |--------|---------|
 | **Painel** (Dashboard) | Application funnel, weekly goal, overdue next actions and the highest-scoring postings right now. |
 | **Vagas** (Jobs) | Postings from six boards plus any RSS feeds you add, with a 0–100 fit score explained item by item and combinable filters. |
+| **Alertas** (Alerts) | Saved searches that flag new matching postings after each collection, summarised in the app with an optional desktop notification. |
+| **Leituras** (Reading) | An index of technical articles from RSS feeds you switch on, tagged with the same skills that drive the fit score. Opt-in, and it never republishes anyone's text. |
 | **Pipeline** | Kanban of applications by stage, with history and next step. Cards move by drag or by a stage selector that works on keyboard and touch. |
-| **Currículos** (Résumés) | A base résumé and versions tailored to a posting, in Portuguese or English, in four presentation templates, with a pre-send checklist, cover letter and PDF output. Also stores PDFs you already have. |
+| **Currículos** (Résumés) | A base résumé and versions tailored to a posting, in Portuguese or English, in four presentation templates, with a pre-send checklist, cover letter and PDF output. With an assistant configured, the tailored version comes out in one click from the job screen. Also stores PDFs you already have. |
 | **Roadmap** | Skill gaps computed over the postings *your own* searches brought in, with recommended projects and certifications. |
 | **Perfil** (Profile) | Single source of truth: feeds the scoring, the résumés and the roadmap. |
-| **Ajustes** (Settings) | Search terms, sources with error diagnostics, region preferences, desktop notifications and the optional API key. |
+| **Ajustes** (Settings) | Search terms, sources with error diagnostics, region preferences, desktop notifications and the optional AI assistant — API key or local model. |
 
 ### The fit score is not a black box
 
@@ -191,6 +195,45 @@ Farol queries third-party servers and constrains itself accordingly:
 
 Usage is personal. Respect each board's terms of service.
 
+**LinkedIn is deliberately out.** Its `robots.txt` forbids automated access
+without express permission (`User-agent: *` / `Disallow: /`), and the only
+self-service permissions on the official API are sign-in and posting — none of
+them read job postings. The full reasoning, the evidence and the open
+alternatives are in
+[`docs/decisoes/0001-linkedin-como-fonte.md`](docs/decisoes/0001-linkedin-como-fonte.md)
+(in Portuguese). The rule that came out of it: **Farol only collects from a board
+whose `robots.txt` allows it, or that offers a public API or feed for this use.**
+
+---
+
+## AI assistant
+
+Optional and **off by default**. Without it the application is complete: scoring,
+roadmap and résumé are computed on the machine, with no network access. Settings
+lets you pick who writes:
+
+| Provider | What it is | Where the text goes |
+|----------|------------|---------------------|
+| **None** | the default | nowhere |
+| **Anthropic API** | your key, your model | leaves the machine |
+| **Local model** | a server you started yourself | stays on your network |
+
+For the local option, Farol **installs nothing, downloads nothing and starts
+nothing**: you run Ollama, LM Studio, `llama-server` or Jan and give it the
+address. Any of them works, because the app speaks the OpenAI-compatible
+`/v1/chat/completions` API.
+
+The address is only accepted if it resolves entirely to loopback or a private
+network, and that check runs before *every* request — what goes out is your
+résumé. Settings also measures RAM and VRAM and marks which catalogue models fit;
+when memory cannot be measured, nothing is marked as fitting.
+
+The system prompt is the same for both providers, and forbids inventing
+experience, companies, numbers, degrees or technologies that are not in your
+profile. Review every line before sending: the revision is a suggestion, not
+truth. Design decisions are in
+[`docs/decisoes/0003-ia-local.md`](docs/decisoes/0003-ia-local.md) (in Portuguese).
+
 ---
 
 ## Development
@@ -198,7 +241,7 @@ Usage is personal. Respect each board's terms of service.
 ```bash
 ./install.sh --sem-atalho              # environment and editable install
 .venv/bin/python -m farol servir --reload
-.venv/bin/python -m pytest             # 132 tests, no network access
+.venv/bin/python -m pytest             # 257 tests, no network access
 .venv/bin/ruff check farol tests
 ```
 
@@ -228,12 +271,21 @@ farol/
   collect.py      ingestion: fetch, deduplicate, store and score
   scoring.py      explainable fit score, work mode, region and salary range
   skills.py       skill taxonomy and text extraction
+  alerts.py       saved searches matched against the postings of each round
+  reading.py      article feeds ingested as an index, with pruning
   markup.py       job description to readable HTML (escapes before marking up)
   resume.py       résumé assembly, cover letter and checklist
+  ai.py           optional assistant: provider selection and system prompt
+  localai.py      local model server: private address, catalogue and hardware
+  insights.py     funnel metrics derived from the event history
   pdfs.py         uploaded PDFs: store, serve and extract text
   roadmap.py      gaps, projects and certifications
+  agenda.py       upcoming actions as iCalendar
+  backup.py       export, read back and restore the user's work
+  selfupdate.py   `farol update` over a git clone
   launcher.py     application startup on Linux, macOS and Windows
   sources/        one module per board, a generic RSS reader and term matching
+docs/decisoes/    recorded decisions — mostly about what was decided *not* to do
 ```
 
 ---

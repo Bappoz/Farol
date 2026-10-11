@@ -1,0 +1,85 @@
+{# A folha do currículo, sozinha. É o que a impressão, a pré-visualização e a
+   oficina (ao vivo, sem salvar) mostram — uma fonte só, para as três nunca
+   divergirem. Espera: data, lang, template, sections e layout. #}
+{% macro secoes(chaves) %}
+{% for chave in chaves %}
+  {% if chave == 'summary' and data.summary %}
+  <section>
+    <h2>{{ sections.summary }}</h2>
+    <p>{{ data.summary }}</p>
+  </section>
+  {% elif chave == 'skills' and data.skills %}
+  <section>
+    <h2>{{ sections.skills }}</h2>
+    <p class="skills-line">{{ data.skills | map('skill', lang) | join(' · ') }}</p>
+  </section>
+  {% elif chave == 'experience' and data.experience %}
+  <section>
+    <h2>{{ sections.experience }}</h2>
+    {% for item in data.experience %}
+    <div class="entry">
+      <div class="line">
+        <span><b>{{ item.role }}</b>{% if item.org %} — {{ item.org }}{% endif %}</span>
+        <span class="when">{{ item.period }}</span>
+      </div>
+      {% if item.bullets %}<ul>{% for bullet in item.bullets %}<li>{{ bullet }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% elif chave == 'projects' and data.projects %}
+  <section>
+    <h2>{{ sections.projects }}</h2>
+    {% for item in data.projects %}
+    <div class="entry">
+      <div class="line">
+        <span><b>{{ item.name }}</b>{% if item.stack %} — {{ item.stack }}{% endif %}</span>
+        <span class="when url">{{ item.url }}</span>
+      </div>
+      {% if item.bullets %}<ul>{% for bullet in item.bullets %}<li>{{ bullet }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% elif chave == 'education' and data.education %}
+  <section>
+    <h2>{{ sections.education }}</h2>
+    {% for item in data.education %}
+    <div class="entry">
+      <div class="line">
+        <span><b>{{ item.course }}</b>{% if item.school %} — {{ item.school }}{% endif %}</span>
+        <span class="when">{{ item.period }}</span>
+      </div>
+      {% if item.note %}<div>{{ item.note }}</div>{% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% elif chave == 'languages' and data.languages %}
+  <section>
+    <h2>{{ sections.languages }}</h2>
+    <p>{% for item in data.languages %}{{ item.name }}{% if item.level %} ({{ item.level }}){% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+  </section>
+  {% endif %}
+{% endfor %}
+{% endmacro %}
+<article class="sheet t-{{ template }}">
+  <header>
+    <h1>{{ data.name }}</h1>
+    <div class="contact">
+      {{ data.headline }}
+      {% if data.city %} · {{ data.city }}{% endif %}
+      {% if data.email %} · {{ data.email }}{% endif %}
+      {% if data.phone %} · {{ data.phone }}{% endif %}
+      {% for link in data.links %} · {{ link.url }}{% endfor %}
+    </div>
+  </header>
+  {% if layout.columns == 'duas-colunas' %}
+  {# a coluna principal vem primeiro no documento: quem lê o texto em ordem
+     (leitor de tela, e o parser de ATS que respeita a ordem) pega o conteúdo
+     antes da barra lateral #}
+  <div class="cols">
+    <div class="main">{{ secoes(layout.order) }}</div>
+    <div class="side">{{ secoes(layout.side) }}</div>
+  </div>
+  {% else %}
+  {{ secoes(layout.order) }}
+  {% endif %}
+</article>

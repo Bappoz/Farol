@@ -61,6 +61,35 @@
     </div>
     {% endif %}
 
+    <div class="card">
+      <div class="card-head"><b>Verificador ATS</b><span class="faint small">sobre o texto do PDF</span></div>
+      <div class="card-body">{% include "_ats.html" %}</div>
+      <div class="card-body ats-ia">
+        <h3 class="ats-h" style="margin-top:0">Verificação com IA <span class="faint">· opcional</span></h3>
+        {% if ai_ready %}
+        <p class="small faint">
+          Leitura qualitativa por {{ assistente.label }}. A nota continua sendo a das regras.
+          {% if assistente.provider == 'anthropic' %}O texto do PDF sai da sua máquina.{% else %}O texto não sai da sua rede.{% endif %}
+        </p>
+        <form method="post" action="/curriculos/{{ resume.id }}/ats-ia">
+          <button class="btn btn-sm">{{ icon('star') }} {{ 'Refazer a verificação com IA' if resume.data.ats_ai else 'Verificar com IA' }}</button>
+        </form>
+        {% else %}
+        <p class="small faint">
+          O verificador acima funciona inteiro sem IA. Para uma segunda leitura, ligue um assistente em
+          <a href="/ajustes">Ajustes</a> — modelo local ou API com a sua chave.
+        </p>
+        {% endif %}
+        {% if resume.data.ats_ai %}
+        <div class="desc ats-ia-text">{{ resume.data.ats_ai.text | descricao }}</div>
+        <p class="small faint">
+          Escrito por {{ resume.data.ats_ai.by }}, quando a nota das regras era {{ resume.data.ats_ai.score }}.
+          É opinião de modelo: confira antes de aplicar.
+        </p>
+        {% endif %}
+      </div>
+    </div>
+
     {% if job %}
     <div class="card">
       <div class="card-head"><b>Cobertura da vaga</b></div>

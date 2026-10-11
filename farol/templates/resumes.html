@@ -2,7 +2,7 @@
 {% from "_icons.html" import icon %}
 {% block title %}Currículos · Farol{% endblock %}
 {% block heading %}Currículos{% endblock %}
-{% block subheading %}Um currículo base e uma versão por vaga que valha o esforço{% endblock %}
+{% block subheading %}Um currículo base e uma versão por vaga que valha o esforço — cada um com a sua nota ATS{% endblock %}
 
 {% block content %}
 <div class="card narrow">
@@ -42,7 +42,9 @@
       {% for code, meta in resume_templates.items() if meta.recommended %}
       <b>{{ meta.label }}</b> é o modelo recomendado — {{ meta.hint }} Se o anúncio manda subir o
       currículo num formulário, é quase certo que um filtro automático vai ler antes de uma pessoa;
-      escolha esse. Os outros valem quando você sabe que alguém vai abrir o PDF direto.
+      escolha esse. <b>Harvard</b> e <b>FAANG</b> são os padrões mais usados em tecnologia e também são de uma
+      coluna; o <b>Designer</b>, de duas, vale quando você sabe que alguém vai abrir o PDF direto. Dá para
+      trocar depois, na oficina, vendo a folha mudar.
       {% endfor %}
     </p>
     <p class="small faint" style="margin-top:8px">
@@ -87,11 +89,47 @@
   </div>
 </div>
 
+{% set editaveis = resumes | selectattr('kind', 'equalto', 'montado') | list %}
+{% if editaveis %}
+<div class="card narrow" style="margin-top:14px">
+  <div class="card-head"><b>Criar a partir de um currículo pronto</b><span class="faint small">leva o texto que você já lapidou</span></div>
+  <div class="card-body">
+    <form method="post" class="inline-form" data-derive>
+      <div class="field" style="flex:1; min-width:200px">
+        <label for="de-base">Partir de</label>
+        <select id="de-base" data-derive-base required>
+          {% for item in editaveis %}
+          <option value="{{ item.id }}">{{ item.name }}{% if item.job_title %} — {{ item.job_title }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field" style="flex:1; min-width:200px">
+        <label for="de-vaga">Para a vaga</label>
+        <select id="de-vaga" name="nova_vaga">
+          <option value="">a mesma do original (cópia fiel)</option>
+          <option value="nenhuma">nenhuma — currículo base</option>
+          {% for job in jobs %}<option value="{{ job.id }}">{{ job.title }} · {{ job.company }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field" style="flex:1; min-width:150px">
+        <label for="de-nome">Nome (opcional)</label>
+        <input type="text" id="de-nome" name="novo_nome" placeholder="usa o nome da vaga">
+      </div>
+      <button class="btn btn-primary" formaction="/curriculos/{{ editaveis[0].id }}/derivar" data-derive-go>{{ icon('plus') }} Criar</button>
+    </form>
+    <p class="small faint" style="margin-top:8px">
+      O novo currículo é um documento próprio: o original não muda. Com outra vaga, as competências e os projetos
+      se reordenam pelo que ela pede e a carta volta a ser rascunho; texto, modelo e idioma vêm junto.
+    </p>
+  </div>
+</div>
+{% endif %}
+
 <div class="card" style="margin-top:14px">
   <div class="card-body tight">
     <div class="table-wrap"><table class="data">
       <thead>
-        <tr><th>Nome</th><th>Idioma</th><th>Modelo</th><th>Direcionado a</th><th>Atualizado</th><th></th></tr>
+        <tr><th>Nome</th><th>ATS</th><th>Idioma</th><th>Modelo</th><th>Direcionado a</th><th>Atualizado</th><th></th></tr>
       </thead>
       <tbody>
         {% for item in resumes %}
@@ -99,6 +137,13 @@
           <td>
             <a href="/curriculos/{{ item.id }}"><b>{{ item.name }}</b></a>
             {% if item.kind == 'arquivo' %}<span class="chip">PDF seu</span>{% endif %}
+            {% if item.parent_name %}<div class="small faint">a partir de {{ item.parent_name }}</div>{% endif %}
+          </td>
+          <td>
+            {% if item.ats is not none %}
+            <a class="ats-badge g-{{ item.ats | ats_grade }}" href="/curriculos/{{ item.id }}"
+               title="Nota do verificador ATS, de 0 a 100">{{ item.ats }}<span class="sr-only"> de 100 no verificador ATS</span></a>
+            {% else %}<span class="faint small" title="Abra o currículo para calcular">—</span>{% endif %}
           </td>
           <td><span class="chip">{{ 'EN' if item.lang == 'en' else 'PT' }}</span></td>
           <td>
@@ -112,6 +157,9 @@
             <a class="btn btn-sm" href="/curriculos/{{ item.id }}/arquivo" target="_blank">{{ icon('link') }} Abrir</a>
             {% else %}
             <a class="btn btn-sm" href="/curriculos/{{ item.id }}/imprimir">{{ icon('print') }} PDF</a>
+            <form method="post" action="/curriculos/{{ item.id }}/derivar" style="display:inline">
+              <button class="btn btn-sm" title="Criar uma cópia fiel deste currículo">{{ icon('plus') }} Duplicar</button>
+            </form>
             {% endif %}
             <form method="post" action="/curriculos/{{ item.id }}/excluir" style="display:inline"
                   data-confirm="Excluir este currículo?">
@@ -120,7 +168,7 @@
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="5"><div class="empty"><b>Nenhum currículo ainda</b>Crie o currículo base a partir do Perfil, ou envie um PDF que você já tem.</div></td></tr>
+        <tr><td colspan="7"><div class="empty"><b>Nenhum currículo ainda</b>Crie o currículo base a partir do Perfil, ou envie um PDF que você já tem.</div></td></tr>
         {% endfor %}
       </tbody>
     </table></div>

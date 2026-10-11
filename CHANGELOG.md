@@ -3,6 +3,51 @@
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 Versionamento conforme [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.2.0] — 2026-10-11
+
+### Adicionado
+
+- **Oficina de currículo** (issue #17): o editor e a folha A4 ficam lado a lado e
+  a folha se redesenha a cada pausa na digitação, sem salvar. Quem desenha é o
+  servidor, com o mesmo template da impressão — o navegador só troca a folha
+  dentro da pré-visualização, então o que se vê é o que sai no PDF. Experiência,
+  projeto, formação e idioma podem ser acrescentados na própria oficina. Salvar
+  continua explícito: a tela marca edição não salva e pede confirmação ao sair.
+- **Modelos Harvard, FAANG e Designer**, somados aos quatro que já existiam. O
+  seletor virou uma fileira de miniaturas e a folha muda no clique. Modelo passa
+  a definir também a ordem das seções (Harvard põe a formação antes da
+  experiência); o conteúdo continua o mesmo em todos.
+- **Criar a partir de um currículo pronto**: *Duplicar* na lista e *Criar a
+  partir deste* na oficina geram um documento próprio com texto, modelo e idioma
+  do original. Apontado para outra vaga, reordena competências e projetos pelo
+  que ela pede e devolve a carta a rascunho, sem tocar no texto lapidado. A
+  cópia parte do que está na tela, inclusive do que ainda não foi salvo.
+- **Verificador ATS sem IA**: nota de 0 a 100 por regras fixas, calculada na
+  máquina — mesma entrada, mesma nota. Cinco categorias com peso declarado
+  (leitura pelo robô, contato, estrutura, conteúdo, aderência à vaga), cada
+  verificação com o motivo e uma correção concreta citando o trecho, e as
+  pendências ordenadas pelo que mais devolve ponto. Falha grave — `[preencher]`
+  esquecido, e-mail ausente, currículo sem experiência nem projeto, idioma
+  trocado, PDF sem texto — trava a nota em 64. A nota aparece na lista, na
+  oficina (ao vivo) e na tela do PDF enviado, onde é medida sobre o texto
+  extraído. O verificador nunca sugere incluir competência que você não tem.
+- **Verificação ATS com IA, opcional**: com assistente configurado (modelo local
+  ou API), uma segunda leitura aponta marcadores fracos, o que o recrutador não
+  acha e incoerências. O modelo recebe o que as regras já apontaram e é proibido
+  de dar nota. Sem assistente o botão não existe e nada sai da máquina.
+- `docs/decisoes/0004-oficina-e-verificador-ats.md` registra por que a nota é
+  determinística, por que a folha é desenhada no servidor e por que o PDF
+  continua saindo da impressão do navegador.
+
+### Alterado
+
+- A "checagem antes de enviar", de nove itens sem peso, deu lugar ao verificador
+  ATS.
+- Os botões de IA do editor gravam o que está digitado antes de o modelo
+  reescrever. Antes, a edição não salva se perdia no redirecionamento.
+- O botão do topo passa a ser *Salvar e gerar PDF*: o PDF sai do que está salvo,
+  e com a folha ao vivo deixou de ser óbvio que os dois podiam diferir.
+
 ## [1.1.0] — 2026-09-24
 
 ### Adicionado

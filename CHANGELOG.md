@@ -3,6 +3,16 @@
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 Versionamento conforme [SemVer](https://semver.org/lang/pt-BR/).
 
+## Não publicado
+
+### Corrigido
+
+- `farol update` num checkout de desenvolvimento em outra branch puxava `main`
+  para dentro do trabalho em andamento e reportava "atualizado". Agora recusa,
+  diz em qual branch está e como trocar.
+- Depois de um update, o servidor já aberto continuava com o código antigo e o
+  atalho o reaproveitava sem avisar. O comando agora diz quando isso acontece.
+
 ## [1.2.0] — 2026-10-11
 
 ### Adicionado

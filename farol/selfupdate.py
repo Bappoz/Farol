@@ -35,6 +35,12 @@ def _default_branch() -> str:
     return "main"
 
 
+def _current_branch() -> str:
+    """Branch em que o checkout está; vazio quando o HEAD está solto."""
+    result = _git("branch", "--show-current")
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
 def _version_from_source() -> str:
     text = (APP_DIR / "farol" / "__init__.py").read_text(encoding="utf-8")
     match = re.search(r'__version__\s*=\s*"([^"]+)"', text)
@@ -85,6 +91,13 @@ def run(*, reinstall: bool = True) -> dict[str, Any]:
         return {"status": "error", "detail": fetch.stderr.strip() or "git fetch falhou"}
 
     branch = _default_branch()
+    # `git pull origin main` puxa main para dentro da branch em que se está. Num
+    # checkout de desenvolvimento isso mistura trabalho em andamento com main, ou
+    # falha de um jeito que não diz o motivo. Atualizar só a partir da branch principal.
+    current = _current_branch()
+    if current != branch:
+        return {"status": "other_branch", "branch": current or "(HEAD solto)", "default": branch}
+
     local = _git("rev-parse", "HEAD")
     remote = _git("rev-parse", f"origin/{branch}")
     if local.returncode != 0 or remote.returncode != 0:

@@ -91,8 +91,13 @@ def _selfupdate() -> int:
     if status == "error":
         print(f"Não deu para atualizar: {result['detail']}")
         return 1
+    if status == "other_branch":
+        print(f"Você está na branch “{result['branch']}”, não em “{result['default']}”.")
+        print(f"O update só segue a branch principal. Troque com `git -C {selfupdate.APP_DIR} switch {result['default']}` e rode de novo.")
+        return 1
     if status == "up_to_date":
         print(f"Farol já está atualizado (versão {result['versao']}).")
+        _avisa_servidor_antigo(result["versao"])
         return 0
 
     print(f"Farol atualizado para a versão {result['versao']}.")
@@ -102,7 +107,22 @@ def _selfupdate() -> int:
     if result.get("shortcut_detail"):
         print("Atenção: o atalho do sistema não foi atualizado:")
         print(result["shortcut_detail"])
+    _avisa_servidor_antigo(result["versao"])
     return 0
+
+
+def _avisa_servidor_antigo(versao_instalada: str) -> None:
+    """Um servidor já de pé continua com o código de antes do update.
+
+    O atalho reaproveita quem já responde na porta, então abrir o app de novo
+    não carrega a versão nova. Dizer isso aqui evita o "atualizou, mas nada mudou".
+    """
+    from . import launcher
+
+    rodando = launcher.running_version(DEFAULT_PORT)
+    if rodando and rodando != versao_instalada:
+        print(f"O Farol em execução ainda é a versão {rodando}. Feche o app (ou o servidor em "
+              f"segundo plano) e abra de novo para usar a {versao_instalada}.")
 
 
 def main(argv: list[str] | None = None) -> int:

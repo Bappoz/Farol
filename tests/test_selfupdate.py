@@ -113,3 +113,56 @@ def test_instalador_roda_sem_terminal():
         assert "--allow-existing" in chamada or "--clear" in chamada, (
             f"`{chamada}` trava esperando resposta quando o ambiente já existe"
         )
+
+
+def test_branch_de_trabalho_nao_recebe_main(tmp_path, clone):
+    """Regressão: estando numa branch de trabalho, o update não pode puxar main para dentro dela."""
+    origin = tmp_path / "origin.git"
+    (origin / "farol" / "__init__.py").write_text('__version__ = "1.1.0"\n', encoding="utf-8")
+    _git(origin, "add", ".")
+    _git(origin, "commit", "--quiet", "-m", "bump versao")
+    _git(clone, "switch", "--quiet", "-c", "feat/trabalho")
+    antes = subprocess.run(["git", "-C", str(clone), "rev-parse", "HEAD"], capture_output=True, text=True).stdout
+
+    resultado = selfupdate.run(reinstall=False)
+
+    assert resultado == {"status": "other_branch", "branch": "feat/trabalho", "default": "main"}
+    depois = subprocess.run(["git", "-C", str(clone), "rev-parse", "HEAD"], capture_output=True, text=True).stdout
+    assert antes == depois
+    assert (clone / "farol" / "__init__.py").read_text(encoding="utf-8") == '__version__ = "1.0.0"\n'
+
+
+def test_head_solto_nao_atualiza(clone):
+    _git(clone, "checkout", "--quiet", "--detach")
+
+    resultado = selfupdate.run(reinstall=False)
+
+    assert resultado["status"] == "other_branch"
+    assert resultado["branch"] == "(HEAD solto)"
+
+
+def test_aviso_quando_o_servidor_em_execucao_e_de_outra_versao(monkeypatch, capsys):
+    from farol import __main__ as cli
+    from farol import launcher
+
+    monkeypatch.setattr(launcher, "running_version", lambda port: "1.1.0")
+    cli._avisa_servidor_antigo("1.2.0")
+    assert "ainda é a versão 1.1.0" in capsys.readouterr().out
+
+
+def test_sem_aviso_quando_o_servidor_ja_e_o_da_versao_nova(monkeypatch, capsys):
+    from farol import __main__ as cli
+    from farol import launcher
+
+    monkeypatch.setattr(launcher, "running_version", lambda port: "1.2.0")
+    cli._avisa_servidor_antigo("1.2.0")
+    assert capsys.readouterr().out == ""
+
+
+def test_sem_aviso_quando_nenhum_servidor_responde(monkeypatch, capsys):
+    from farol import __main__ as cli
+    from farol import launcher
+
+    monkeypatch.setattr(launcher, "running_version", lambda port: None)
+    cli._avisa_servidor_antigo("1.2.0")
+    assert capsys.readouterr().out == ""

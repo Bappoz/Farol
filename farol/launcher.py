@@ -72,6 +72,15 @@ def is_running(port: int, timeout: float = 1.0) -> bool:
         return False
 
 
+def running_version(port: int, timeout: float = 1.0) -> str | None:
+    """Versão do Farol que responde na porta, ou None se nada responde."""
+    try:
+        with urllib.request.urlopen(f"{base_url(port)}/saude", timeout=timeout) as response:
+            return json.loads(response.read().decode("utf-8")).get("version")
+    except (urllib.error.URLError, OSError, ValueError):
+        return None
+
+
 def _detached_flags() -> dict:
     """Como soltar o servidor do terminal que o chamou, em cada sistema."""
     if os.name == "nt":

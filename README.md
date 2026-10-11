@@ -574,7 +574,10 @@ O comando `farol update` só funciona quando o app foi instalado a partir de um
 clone git (o caminho descrito em [Instalação](#instalação)): ele busca o
 repositório remoto, compara com o commit instalado e, se houver algo novo, faz
 `git pull --ff-only` e reinstala as dependências no mesmo ambiente. Com mudanças
-locais não commitadas ele se recusa a mexer — resolva-as primeiro.
+locais não commitadas ele se recusa a mexer — resolva-as primeiro. Ele também só
+atualiza a partir da branch principal: numa branch de trabalho, avisa e não mexe
+em nada. E se o Farol já estiver aberto, o servidor em execução continua com o
+código antigo até ser fechado — o comando diz isso ao final.
 
 ---
 

@@ -212,7 +212,11 @@
       const group = document.querySelector(`[data-group="${add.dataset.add}"]`);
       const template = document.querySelector(`#tpl-${add.dataset.add}`);
       if (group && template) {
-        group.insertAdjacentHTML("beforeend", template.innerHTML);
+        // `__i__` (blocos da oficina) vira um índice único; no perfil não há o que trocar
+        group.insertAdjacentHTML(
+          "beforeend",
+          template.innerHTML.replaceAll("__i__", `n${Date.now().toString(36)}`),
+        );
         const last = group.lastElementChild.querySelector("input, textarea");
         if (last) last.focus();
       }
@@ -223,6 +227,167 @@
       const item = remove.closest(".repeat-item");
       if (item) item.remove();
     }
+  });
+})();
+
+// Oficina de currículo: a folha e a nota ATS acompanham a digitação. Quem
+// desenha é o servidor, com o mesmo template da impressão — o navegador só
+// troca o <article> dentro do iframe, então não existe uma segunda versão do
+// currículo em JS para divergir da que vira PDF.
+(function oficina() {
+  const form = document.querySelector("[data-oficina]");
+  if (!form) return;
+
+  const frame = form.querySelector("[data-live-sheet]");
+  const atsBox = form.querySelector("[data-live-ats]");
+  const badge = form.querySelector("[data-ats-badge]");
+  const state = form.querySelector("[data-live-state]");
+  const dirtyFlag = document.querySelector("[data-dirty-flag]");
+  let timer = 0;
+  let controller = null;
+  let dirty = false;
+
+  function setState(text, kind) {
+    if (!state) return;
+    state.textContent = text;
+    state.classList.toggle("busy", kind === "busy");
+    state.classList.toggle("off", kind === "off");
+  }
+
+  // O anel não pula de 62 para 78: desenha o caminho, e o número conta junto.
+  function tween(box, from) {
+    const ring = box.querySelector(".ats-ring .value");
+    const num = box.querySelector("[data-ats-num]");
+    const to = Number(box.firstElementChild?.dataset.atsScore || 0);
+    if (!ring || !num || from === to || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    ring.style.transition = "none";
+    ring.setAttribute("stroke-dasharray", `${from} 100`);
+    ring.getBoundingClientRect(); // força o navegador a assumir o ponto de partida
+    ring.style.transition = "";
+    ring.setAttribute("stroke-dasharray", `${to} 100`);
+    const start = performance.now();
+    (function step(now) {
+      const t = Math.min(1, (now - start) / 500);
+      num.textContent = Math.round(from + (to - from) * t);
+      if (t < 1) requestAnimationFrame(step);
+    })(start);
+  }
+
+  async function refresh() {
+    controller?.abort();
+    controller = new AbortController();
+    setState("atualizando…", "busy");
+    try {
+      const response = await fetch(form.dataset.live, {
+        method: "POST",
+        body: new FormData(form),
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(String(response.status));
+      const data = await response.json();
+
+      const sheet = frame?.contentDocument?.querySelector("article.sheet");
+      if (sheet) {
+        sheet.outerHTML = data.sheet;
+        frame.dispatchEvent(new Event("load")); // remede a altura (ver resumePreview)
+      }
+      if (atsBox) {
+        const from = Number(atsBox.firstElementChild?.dataset.atsScore || 0);
+        const open = atsBox.querySelector("details")?.open;
+        atsBox.innerHTML = data.ats;
+        if (open) atsBox.querySelector("details").open = true;
+        tween(atsBox, from);
+      }
+      if (badge) {
+        badge.textContent = data.score;
+        badge.className = `ats-badge g-${data.grade}`;
+      }
+      setState(dirty ? "ao vivo · não salvo" : "ao vivo", "");
+    } catch (error) {
+      if (error.name === "AbortError") return;
+      setState("sem resposta do app — a folha mostra a última versão", "off");
+    }
+  }
+
+  function touch() {
+    dirty = true;
+    if (dirtyFlag) dirtyFlag.hidden = false;
+    window.clearTimeout(timer);
+    timer = window.setTimeout(refresh, 320);
+  }
+
+  form.addEventListener("input", touch);
+  form.addEventListener("change", touch);
+  // adicionar e remover bloco não disparam `input`; o DOM já mudou quando isto roda
+  form.addEventListener("click", (event) => {
+    if (event.target.closest("[data-add], [data-remove]")) window.setTimeout(touch, 0);
+  });
+
+  // o texto de ajuda acompanha o modelo escolhido
+  const hints = JSON.parse(document.querySelector("#tpl-hints")?.textContent || "{}");
+  const hint = form.querySelector("[data-tpl-hint]");
+  form.addEventListener("change", (event) => {
+    if (event.target.name === "template" && hint) hint.textContent = hints[event.target.value]?.hint || "";
+  });
+
+  // Sair com edição não salva pede confirmação — a folha ao vivo dá a impressão
+  // de que tudo já está guardado, e não está. Enviar o formulário não pergunta.
+  form.addEventListener("submit", (event) => {
+    // depois dos outros ouvintes: se a confirmação cancelou o envio, continua não salvo
+    window.setTimeout(() => { if (!event.defaultPrevented) dirty = false; }, 0);
+  });
+  window.addEventListener("beforeunload", (event) => {
+    if (dirty) event.preventDefault();
+  });
+})();
+
+// "Criar a partir de um currículo pronto": o currículo de origem está na URL da
+// ação, então o seletor reescreve o destino do botão.
+(function derive() {
+  const form = document.querySelector("[data-derive]");
+  if (!form) return;
+  const base = form.querySelector("[data-derive-base]");
+  const button = form.querySelector("[data-derive-go]");
+  const sync = () => button.setAttribute("formaction", `/curriculos/${base.value}/derivar`);
+  base.addEventListener("change", sync);
+  sync();
+})();
+
+// Abas do painel da oficina (Folha | Verificador ATS). Sem JS os dois painéis
+// ficam abertos em sequência; com JS um se esconde e as setas navegam.
+(function tabs() {
+  document.querySelectorAll("[data-tabs]").forEach((root) => {
+    const buttons = [...root.querySelectorAll("[data-tab]")];
+    const panels = [...root.querySelectorAll("[data-panel]")];
+    if (!buttons.length) return;
+    root.classList.add("on");
+
+    function select(name, focus) {
+      buttons.forEach((button) => {
+        const active = button.dataset.tab === name;
+        button.setAttribute("aria-selected", String(active));
+        button.tabIndex = active ? 0 : -1;
+        if (active && focus) button.focus();
+      });
+      panels.forEach((panel) => { panel.hidden = panel.dataset.panel !== name; });
+      // a folha mede a própria altura, e escondida ela mede zero
+      if (name === "folha") window.dispatchEvent(new Event("farol:layout"));
+      try { sessionStorage.setItem("farol-oficina-aba", name); } catch { /* modo privado */ }
+    }
+
+    buttons.forEach((button, index) => {
+      button.addEventListener("click", () => select(button.dataset.tab, false));
+      button.addEventListener("keydown", (event) => {
+        const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+        if (!step) return;
+        event.preventDefault();
+        select(buttons[(index + step + buttons.length) % buttons.length].dataset.tab, true);
+      });
+    });
+
+    let saved = "";
+    try { saved = sessionStorage.getItem("farol-oficina-aba") || ""; } catch { /* modo privado */ }
+    select(buttons.some((b) => b.dataset.tab === saved) ? saved : buttons[0].dataset.tab, false);
   });
 })();
 

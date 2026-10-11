@@ -122,6 +122,8 @@ CREATE TABLE IF NOT EXISTS resumes (
     file           TEXT NOT NULL DEFAULT '',        -- caminho relativo ao diretório de dados
     data           TEXT NOT NULL DEFAULT '{}',
     letter         TEXT NOT NULL DEFAULT '',
+    parent_id      INTEGER,                         -- currículo de onde este foi derivado
+    ats_score      INTEGER,                         -- nota ATS guardada (só para kind = 'arquivo')
     created_at     TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at     TEXT NOT NULL DEFAULT (datetime('now'))
 );

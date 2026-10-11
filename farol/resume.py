@@ -6,7 +6,7 @@ que está no seu perfil, e marca com [preencher] o que falta.
 
 from __future__ import annotations
 
-import re
+import copy
 from typing import Any
 
 from . import db, skills
@@ -15,18 +15,34 @@ PLACEHOLDER = "[preencher]"
 
 LANGS = {"pt": "Português", "en": "English"}
 
-# Modelos de apresentação do currículo. Mudam só o CSS da impressão — o conteúdo
-# é o mesmo, então trocar de modelo nunca perde texto seu.
+# Modelos de apresentação do currículo. Mudam a aparência e a ordem das seções —
+# o conteúdo é o mesmo, então trocar de modelo nunca perde texto seu.
 #
 # `sober` é o recomendado de propósito: uma coluna, sem cor de fundo, sem ícone e
 # sem coluna lateral é o que um filtro de ATS lê sem erro, e ATS é o primeiro
-# leitor de quase toda candidatura. Os outros existem para quando você sabe que
-# uma pessoa vai ler primeiro (indicação, feira, portfólio).
+# leitor de quase toda candidatura. Harvard e FAANG são os dois padrões que mais
+# circulam em processo seletivo de tecnologia e também são de uma coluna. O
+# Designer é o único de duas colunas: existe para quando uma pessoa abre o PDF
+# direto (indicação, feira, portfólio), e o verificador ATS avisa do risco.
+DEFAULT_ORDER = ("summary", "skills", "experience", "projects", "education", "languages")
+
 TEMPLATES: dict[str, dict[str, Any]] = {
     "sober": {
         "label": "Sóbrio",
         "hint": "Uma coluna, sem enfeite. É o que passa limpo por filtro de ATS.",
         "recommended": True,
+    },
+    "harvard": {
+        "label": "Harvard",
+        "hint": "O padrão acadêmico americano: serifado, nome centralizado e formação antes da experiência.",
+        "recommended": False,
+        "order": ("summary", "education", "experience", "projects", "skills", "languages"),
+    },
+    "faang": {
+        "label": "FAANG",
+        "hint": "O formato denso das big techs: experiência e projetos primeiro, competências no fim, tudo em uma página.",
+        "recommended": False,
+        "order": ("summary", "experience", "projects", "education", "skills", "languages"),
     },
     "compacto": {
         "label": "Compacto",
@@ -43,6 +59,14 @@ TEMPLATES: dict[str, dict[str, Any]] = {
         "hint": "Sem serifa, nome grande e barra no título da seção. Mais cara de produto.",
         "recommended": False,
     },
+    "designer": {
+        "label": "Designer",
+        "hint": "Duas colunas com barra lateral colorida. Bonito na mão de uma pessoa; parser de ATS embaralha a ordem.",
+        "recommended": False,
+        "layout": "duas-colunas",
+        "side": ("skills", "education", "languages"),
+        "order": ("summary", "experience", "projects"),
+    },
 }
 
 DEFAULT_TEMPLATE = "sober"
@@ -50,6 +74,17 @@ DEFAULT_TEMPLATE = "sober"
 
 def template_or_default(value: str | None) -> str:
     return value if value in TEMPLATES else DEFAULT_TEMPLATE
+
+
+def layout(template: str | None) -> dict[str, Any]:
+    """Como o modelo distribui as seções na folha: colunas, ordem e barra lateral."""
+    meta = TEMPLATES[template_or_default(template)]
+    return {
+        "columns": meta.get("layout", "uma-coluna"),
+        "order": tuple(meta.get("order", DEFAULT_ORDER)),
+        "side": tuple(meta.get("side", ())),
+    }
+
 
 # Títulos das seções do currículo impresso.
 SECTIONS = {
@@ -76,6 +111,15 @@ def _job_skills(job: dict[str, Any] | None) -> list[str]:
     return skills.extract(text)
 
 
+def _relevance(entry: dict[str, Any], wanted: set[str]) -> int:
+    """Quantas skills pedidas pela vaga o item (projeto, experiência) cita."""
+    text = " ".join(
+        str(entry.get(field, "")) for field in ("name", "role", "org", "stack", "course", "school")
+    )
+    text += " " + " ".join(entry.get("bullets") or [])
+    return len(set(skills.extract(text)) & wanted)
+
+
 def build(profile: dict[str, Any], job: dict[str, Any] | None = None) -> dict[str, Any]:
     """Gera a estrutura do currículo, priorizando o que a vaga pede."""
     wanted = _job_skills(job)
@@ -84,14 +128,7 @@ def build(profile: dict[str, Any], job: dict[str, Any] | None = None) -> dict[st
     owned = list(profile.get("skills") or [])
     ordered_skills = [s for s in owned if s in wanted_set] + [s for s in owned if s not in wanted_set]
 
-    def relevance(entry: dict[str, Any]) -> int:
-        text = " ".join(
-            str(entry.get(field, "")) for field in ("name", "role", "org", "stack", "course", "school")
-        )
-        text += " " + " ".join(entry.get("bullets") or [])
-        return len(set(skills.extract(text)) & wanted_set)
-
-    projects = sorted(profile.get("projects") or [], key=relevance, reverse=True)
+    projects = sorted(profile.get("projects") or [], key=lambda p: _relevance(p, wanted_set), reverse=True)
     experience = list(profile.get("experience") or [])
 
     summary = (profile.get("summary") or "").strip()
@@ -127,48 +164,42 @@ def build(profile: dict[str, Any], job: dict[str, Any] | None = None) -> dict[st
     }
 
 
-def checklist(resume: dict[str, Any]) -> list[dict[str, Any]]:
-    """Verificações objetivas antes de enviar. Nada de conselho vago."""
-    items: list[dict[str, Any]] = []
+# Sobras de uma revisão anterior que não fazem sentido na cópia: a sugestão de
+# marcadores e o parecer da IA foram escritos para outra vaga.
+_DERIVED_ONLY = ("ai_bullets", "ats_ai")
 
-    def add(ok: bool, label: str, hint: str = "") -> None:
-        items.append({"ok": ok, "label": label, "hint": hint})
 
-    add(bool(resume.get("email")) and PLACEHOLDER not in resume["email"], "E-mail preenchido")
-    add(bool(resume.get("phone")), "Telefone ou WhatsApp", "Recrutador ainda liga.")
-    add(
-        any("linkedin" in (link.get("url") or "").lower() for link in resume.get("links", [])),
-        "LinkedIn no cabeçalho",
+def retarget(data: dict[str, Any], job: dict[str, Any] | None,
+             owned: list[str] | None = None) -> dict[str, Any]:
+    """Cópia de um currículo já lapidado, apontada para outra vaga (ou para nenhuma).
+
+    O texto é preservado inteiro — é para isso que se parte de um currículo
+    pronto e não do Perfil. Muda só o que depende da vaga: a ordem das
+    competências e dos projetos, o que a vaga pede e você não tem, e o alvo.
+    O cargo pretendido fica como estava; o verificador ATS avisa se ele não
+    conversa com o título do anúncio, e a decisão de trocar é sua.
+    """
+    novo = copy.deepcopy(data)
+    for key in _DERIVED_ONLY:
+        novo.pop(key, None)
+
+    wanted = _job_skills(job)
+    wanted_set = set(wanted)
+    chosen = list(novo.get("skills") or [])
+    novo["skills"] = [s for s in chosen if s in wanted_set] + [s for s in chosen if s not in wanted_set]
+    novo["highlight_skills"] = [s for s in novo["skills"] if s in wanted_set]
+    # "não tem" se mede contra o Perfil: desmarcar uma skill neste currículo não a apaga de você
+    have = set(owned if owned is not None else chosen) | set(chosen)
+    novo["missing_skills"] = [s for s in wanted if s not in have]
+    novo["projects"] = sorted(
+        novo.get("projects") or [], key=lambda p: _relevance(p, wanted_set), reverse=True
     )
-    add(
-        any("github" in (link.get("url") or "").lower() for link in resume.get("links", [])),
-        "GitHub no cabeçalho",
-        "Em vaga técnica, o link do código pesa mais que o resumo.",
-    )
-
-    bullets = [b for exp in resume.get("experience", []) for b in (exp.get("bullets") or [])]
-    bullets += [b for pr in resume.get("projects", []) for b in (pr.get("bullets") or [])]
-    add(len(bullets) >= 4, "Pelo menos 4 marcadores de entrega", "Currículo sem verbo de ação some.")
-
-    with_number = [b for b in bullets if re.search(r"\d", b)]
-    add(
-        len(with_number) >= max(1, len(bullets) // 3),
-        "Um terço dos marcadores tem número",
-        "Troque 'melhorei a performance' por 'reduzi o tempo de resposta de 800ms para 200ms'.",
-    )
-
-    add(len(resume.get("skills", [])) >= 6, "Ao menos 6 competências listadas")
-    add(len(resume.get("projects", [])) >= 2, "Dois projetos com link", "Primeiro emprego se ganha com projeto.")
-    add(bool(resume.get("summary")) and PLACEHOLDER not in resume["summary"], "Resumo escrito por você")
-
-    if resume.get("target", {}).get("title"):
-        missing = resume.get("missing_skills") or []
-        add(
-            len(missing) <= 3,
-            "Poucos requisitos fora do seu perfil",
-            ("A vaga pede: " + ", ".join(missing[:6])) if missing else "",
-        )
-    return items
+    novo["target"] = {
+        "title": (job or {}).get("title", ""),
+        "company": (job or {}).get("company", ""),
+        "url": (job or {}).get("url", ""),
+    }
+    return novo
 
 
 LETTER_TEMPLATE = """{saudacao}

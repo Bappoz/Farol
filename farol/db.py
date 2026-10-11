@@ -173,6 +173,10 @@ MIGRATIONS: dict[str, dict[str, str]] = {
         "template": "TEXT NOT NULL DEFAULT 'sober'",
         "kind": "TEXT NOT NULL DEFAULT 'montado'",
         "file": "TEXT NOT NULL DEFAULT ''",
+        # sem REFERENCES de propósito: a restauração de backup insere as linhas
+        # na ordem do arquivo, e um filho antes do pai quebraria a chave
+        "parent_id": "INTEGER",
+        "ats_score": "INTEGER",
     },
     "events": {
         # a etapa de destino em coluna própria: as métricas precisam consultar o

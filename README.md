@@ -64,7 +64,7 @@ e aí nem esse tráfego sai da sua rede.
 | **Leituras** | Índice de artigos técnicos dos feeds RSS que você ligar, etiquetado com as mesmas competências do fit score. Opt-in e sem republicar texto de ninguém. |
 | **Métricas** | Conversão entre etapas, tempo mediano de cada passo, ritmo semanal, candidaturas esquecidas, retorno por fonte e faixa salarial das vagas coletadas. |
 | **Pipeline** | Quadro das candidaturas por etapa, com histórico e próximo passo. O cartão muda de coluna por arraste ou pelo seletor de etapa, que funciona no teclado e no celular. |
-| **Currículos** | Currículo base e versões direcionadas a uma vaga, em português ou inglês, em quatro modelos de apresentação, com verificação antes do envio, carta de apresentação e geração de PDF. Com assistente configurado, a versão direcionada sai pronta em um clique a partir da tela da vaga. Também armazena PDFs prontos. |
+| **Currículos** | Currículo base e versões direcionadas a uma vaga, em português ou inglês, montados numa oficina com a folha redesenhada enquanto se digita, em sete modelos (Harvard, FAANG e Designer entre eles), com verificador ATS que dá nota de 0 a 100 sem IA, carta de apresentação e geração de PDF. Um currículo pronto serve de ponto de partida para o da próxima vaga. Com assistente configurado, a versão direcionada sai pronta em um clique a partir da tela da vaga. Também armazena PDFs prontos. |
 | **Roadmap** | Lacunas de competência calculadas sobre as vagas que as suas buscas trouxeram, com projetos e certificações recomendados. |
 | **Perfil** | Fonte única de verdade: alimenta a pontuação, os currículos e o roadmap. |
 | **Ajustes** | Termos de busca, fontes com diagnóstico de erro, preferências de região, notificação no desktop e o assistente de IA opcional — chave da API ou modelo local. |
@@ -212,15 +212,27 @@ A pontuação das vagas independe do idioma: `unit tests` e `testes automatizado
 resolvem para a mesma competência canônica, assim como `junior`, `entry level`,
 `trainee` e `estágio` para o mesmo nível de senioridade.
 
-**Modelos de apresentação.** Quatro, escolhidos na criação e trocáveis a qualquer
-momento no editor.
+**Oficina.** O editor e a folha A4 ficam lado a lado, e a folha se redesenha a
+cada pausa na digitação — sem salvar e sem recarregar a página. Quem desenha é o
+servidor, com o mesmo template da impressão: o navegador só troca a folha dentro
+da pré-visualização, então não existe uma segunda versão do currículo que possa
+divergir da que vira PDF. Salvar continua sendo um ato explícito; a tela marca
+quando há edição não salva e pede confirmação antes de sair. Experiência,
+projeto, formação e idioma podem ser acrescentados ali mesmo, sem passar pelo
+Perfil.
+
+**Modelos de apresentação.** Sete, escolhidos na criação e trocáveis a qualquer
+momento na oficina, vendo a folha mudar.
 
 | Modelo | Quando usar |
 |--------|-------------|
 | **Sóbrio** *(recomendado, padrão)* | Uma coluna, sem ornamento. É o que passa limpo por filtro automático de currículos. |
+| **Harvard** | O padrão acadêmico americano: serifado, nome centralizado, formação antes da experiência. |
+| **FAANG** | O formato denso das big techs: experiência e projetos primeiro, competências no fim, uma página. |
 | **Compacto** | Mesma estrutura em espaçamento menor, para caber em uma página. |
 | **Com destaque** | Nome e títulos de seção em cor de acento. |
 | **Moderno** | Sem serifa, nome em corpo maior, barra no título da seção. |
+| **Designer** | Duas colunas com barra lateral colorida. O único que o verificador ATS reprova no formato. |
 
 O modelo sóbrio é o recomendado por uma razão concreta: quando o anúncio pede o
 envio do currículo por formulário, é quase certo que um filtro automático o leia
@@ -228,8 +240,48 @@ antes de qualquer pessoa, e coluna lateral, cor de fundo e ícone são o que mai
 o confunde. Os demais valem quando se sabe que uma pessoa abrirá o PDF
 diretamente — indicação, feira, portfólio.
 
-Os modelos alteram apenas o CSS de impressão sobre o mesmo HTML. Trocar de
-modelo não altera nem perde nada do que foi escrito.
+Os modelos alteram a apresentação e a ordem das seções, nunca o conteúdo. Trocar
+de modelo não altera nem perde nada do que foi escrito.
+
+**Criar a partir de um currículo pronto.** Personalizar para uma vaga não exige
+recomeçar do Perfil. *Criar a partir deste* (na oficina) e *Duplicar* (na lista)
+geram um documento próprio com o texto, o modelo e o idioma do original — que não
+muda. Apontando a cópia para outra vaga do pipeline, as competências e os
+projetos se reordenam pelo que ela pede e a carta volta a ser rascunho; o texto
+lapidado fica intacto. A lista mostra de qual currículo cada um saiu.
+
+**Verificador ATS.** Cada currículo recebe uma nota de 0 a 100 calculada por
+regras fixas, na máquina, sem IA e sem rede — a mesma entrada produz sempre a
+mesma nota. Ela aparece na lista, na oficina (atualizada junto com a folha) e na
+tela do PDF enviado.
+
+| Categoria | Peso | O que mede |
+|-----------|------|------------|
+| Leitura pelo robô | 25 | Modelo de uma coluna, símbolos que quebram parser, períodos com ano, links por extenso. No PDF: camada de texto e títulos de seção reconhecíveis. |
+| Contato | 15 | Nome, e-mail válido, telefone, cidade, LinkedIn, GitHub. |
+| Estrutura | 20 | Resumo, experiência ou projetos, formação, quantidade de competências, tamanho, `[preencher]` esquecido. |
+| Conteúdo | 40 | Marcadores com verbo de ação e com número, tamanho dos marcadores, clichês, primeira pessoa, verbo repetido, texto no idioma do currículo. |
+| Aderência à vaga | 30 | Termos técnicos do anúncio presentes no currículo e usados em frase, cargo no cabeçalho. Só existe quando há vaga; sem ela os outros pesos são renormalizados. |
+
+Cada verificação devolve o motivo e uma correção concreta, citando o trecho. As
+pendências vêm ordenadas pelo que mais devolve ponto. Cinco falhas travam a nota
+em 64 por melhor que seja o resto — `[preencher]` esquecido, e-mail ausente,
+currículo sem experiência nem projeto, texto em idioma diferente do declarado e
+PDF sem camada de texto.
+
+Duas ressalvas que a própria tela faz. Nenhum ATS publica a nota que atribui: o
+verificador mede as causas conhecidas de um currículo ser mal lido ou mal
+ranqueado, não reproduz o Gupy nem o Greenhouse. E ele nunca sugere incluir
+competência que você não tem — termo da vaga ausente vira "cite onde usou, se
+usou", com o caminho para o Roadmap.
+
+**Verificação com IA (opcional).** Com um assistente configurado em Ajustes —
+modelo local ou API —, um botão pede uma segunda leitura: marcadores fracos com
+proposta de reescrita, o que um recrutador não encontraria em dez segundos e
+incoerências. O modelo recebe o que as regras já apontaram, para não repetir, e é
+instruído a não dar nota: a nota continua sendo a determinística. Sem assistente
+o botão não existe, nenhuma requisição é feita e o verificador segue completo.
+Decisão registrada em [`docs/decisoes/0004`](docs/decisoes/0004-oficina-e-verificador-ats.md).
 
 **PDF pronto.** É possível enviar um currículo que já existe em PDF (até 15 MB),
 pela tela de Currículos ou diretamente na página da vaga. Ele aparece na lista
@@ -589,7 +641,8 @@ farol/
   alerts.py       buscas guardadas e casamento com as vagas da rodada
   reading.py      feeds de artigo, ingestão como índice e poda
   markup.py       descrição da vaga em HTML legível (escapa antes de marcar)
-  resume.py       montagem de currículo, carta e verificação
+  resume.py       montagem de currículo, modelos e carta
+  ats.py          verificador ATS determinístico (nota e sugestões, sem IA)
   ai.py           assistente opcional: escolhe o provedor e guarda as instruções
   localai.py      servidor de modelo local: endereço privado, catálogo e hardware
   insights.py     métricas do funil a partir do histórico de eventos

@@ -187,6 +187,36 @@ def polish_letter(letter: str, resume: dict[str, Any], job: dict[str, Any] | Non
     ))
 
 
+def ats_review(resume: dict[str, Any], job: dict[str, Any] | None, lang: str,
+               findings: list[str], score: int) -> str:
+    """Leitura qualitativa que complementa o verificador de regras (`farol.ats`).
+
+    A nota continua sendo a determinística: o modelo recebe o que as regras já
+    apontaram justamente para não repetir, e é proibido de dar nota própria —
+    duas notas para o mesmo currículo, uma delas mudando a cada clique, não
+    ajudam ninguém a decidir o que corrigir.
+    """
+    apontado = "\n".join(f"- {item}" for item in findings) or "- nada pendente"
+    reescrita = "em inglês" if lang == "en" else "em português do Brasil"
+    return _sem_eco(complete(
+        "Escreva a análise em português do Brasil. "
+        "Abaixo estão um currículo, a vaga (quando existir) e o resultado de um verificador "
+        f"automático de regras de ATS, que deu nota {score}/100.\n\n"
+        f"O verificador já apontou:\n{apontado}\n\n"
+        "Não repita esses pontos e não dê nota. Faça a leitura que regra não faz, em três blocos "
+        "curtos com estes títulos:\n"
+        "Marcadores fracos: os três marcadores que menos dizem, cada um seguido de uma reescrita "
+        f"{reescrita} usando só fatos presentes nos dados; onde faltar o número, escreva [preencher].\n"
+        "O que um recrutador não acha em dez segundos: o que a vaga pede e o currículo não deixa "
+        "evidente, mesmo que esteja lá.\n"
+        "Incoerências: datas, cargo que não combina com as entregas, idioma misturado. Se não "
+        "houver, diga que não há.\n"
+        "Use lista com hífen, no máximo 250 palavras. Nunca sugira incluir tecnologia ou "
+        "experiência que não esteja nos dados.\n\n" + _context(resume, job),
+        max_tokens=1100,
+    ))
+
+
 # Etapas da geração dirigida a uma vaga, na ordem em que rodam. Cada uma é uma
 # ida e volta ao modelo: três chamadas curtas erram menos que uma longa pedindo
 # JSON — e, num modelo pequeno rodando local, "erra menos" é a diferença entre

@@ -1,0 +1,96 @@
+{# Painel do verificador ATS. Renderizado na página e de novo a cada resposta da
+   pré-visualização ao vivo — por isso é um parcial sem estado. Espera: ats, lang. #}
+{% from "_icons.html" import icon %}
+<div class="ats g-{{ ats.grade }}" data-ats-score="{{ ats.score }}" data-ats-grade="{{ ats.grade }}">
+  <div class="ats-top">
+    <div class="ats-ring" role="img" aria-label="Nota ATS: {{ ats.score }} de 100 — {{ ats.label }}">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <circle class="track" cx="60" cy="60" r="52"/>
+        <circle class="value" cx="60" cy="60" r="52" pathLength="100" stroke-dasharray="{{ ats.score }} 100"/>
+      </svg>
+      <div class="num"><b data-ats-num>{{ ats.score }}</b><span>de 100</span></div>
+    </div>
+    <div class="ats-sum">
+      <b class="ats-label">{{ ats.label }}</b>
+      <span class="small faint">
+        {{ ats.stats.words }} palavras · {{ ats.stats.bullets }} marcadores · {{ ats.stats.skills }} competências
+      </span>
+      <div class="ats-cats">
+        {% for cat in ats.categories %}
+        <div class="ats-cat g-{{ cat.score | ats_grade }}">
+          <span>{{ cat.label }}</span>
+          <div class="meter" role="img" aria-label="{{ cat.label }}: {{ cat.score }} de 100"><i style="width:{{ cat.score }}%"></i></div>
+          <b>{{ cat.score }}</b>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {% if ats.blocked %}
+  <p class="ats-blocked">
+    {{ icon('alert', 14) }}
+    <span>Nota limitada a {{ ats.cap }} enquanto houver: <b>{{ ats.blocked | join('; ') | lower }}</b>.
+    São falhas que o resto do currículo não compensa.</span>
+  </p>
+  {% endif %}
+
+  {% if ats.fixes %}
+  <h3 class="ats-h">O que mais devolve ponto</h3>
+  <ol class="ats-fixes">
+    {% for fix in ats.fixes[:5] %}
+    <li class="{{ fix.status }}">
+      <div class="ats-fix-head">
+        <span class="mark">{{ icon('alert', 14) }}</span>
+        <b>{{ fix.label }}</b>
+        {% if fix.blocker %}<span class="chip bad" title="Enquanto isto não for resolvido, a nota não passa de {{ ats.cap }}">trava a nota</span>
+        {% else %}<span class="chip {{ 'bad' if fix.status == 'fail' else 'warn' }}" title="Pontos estimados que este ajuste devolve">+{{ fix.gain }}</span>{% endif %}
+      </div>
+      {% if fix.detail %}<p class="detail">{{ fix.detail }}</p>{% endif %}
+      <p class="fix">{{ fix.fix }}</p>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <p class="ats-clean">{{ icon('check', 14) }} Nenhuma pendência nas regras. Leia em voz alta uma última vez e envie.</p>
+  {% endif %}
+
+  {% if ats.keywords.matched or ats.keywords.missing %}
+  <h3 class="ats-h">Termos técnicos da vaga</h3>
+  <div class="tags">
+    {% for skill in ats.keywords.matched %}<span class="chip on">{{ skill | skill(lang) }}</span>{% endfor %}
+    {% for skill in ats.keywords.missing %}<span class="chip" title="Citado na vaga, ausente do currículo">{{ skill | skill(lang) }}</span>{% endfor %}
+  </div>
+  {% if ats.keywords.missing %}
+  <p class="small faint" style="margin-top:8px">
+    Em verde, o que a vaga cita e o currículo também. Em cinza, o que falta: inclua só o que você já usou,
+    e leve o resto para o <a href="/roadmap">Roadmap</a>. Palavra-chave que você não sustenta vira pergunta de entrevista.
+  </p>
+  {% endif %}
+  {% endif %}
+
+  <details class="ats-all">
+    <summary>Todas as verificações ({{ ats.categories | sum(attribute='checks', start=[]) | length }})</summary>
+    {% for cat in ats.categories %}
+    <h4>{{ cat.label }} <span class="faint">· peso {{ cat.weight }} · {{ cat.score }}/100</span></h4>
+    <ul class="checklist">
+      {% for item in cat.checks %}
+      <li class="{{ 'ok' if item.status == 'ok' else 'no' }} s-{{ item.status }}">
+        <span class="mark">{{ icon('check', 15) if item.status == 'ok' else icon('alert', 15) }}</span>
+        <span>
+          {{ item.label }}
+          {% if item.status != 'ok' %}<span class="sr-only"> — {{ 'reprovado' if item.status == 'fail' else 'atenção' }}</span>{% endif %}
+          {% if item.detail %}<span class="hint">{{ item.detail }}</span>{% endif %}
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endfor %}
+  </details>
+
+  <p class="small faint ats-note">
+    Nota calculada por regras fixas, na sua máquina, sem IA: a mesma entrada dá sempre a mesma nota.
+    {% if not ats.structured %}Aqui ela é medida sobre o texto que saiu do PDF — o mesmo que um ATS consegue ler.{% endif %}
+    Nenhum ATS publica a nota que dá; esta mede as causas conhecidas de um currículo ser mal lido ou mal ranqueado.
+  </p>
+</div>

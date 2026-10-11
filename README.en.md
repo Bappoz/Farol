@@ -42,7 +42,7 @@ network.
 | **Alertas** (Alerts) | Saved searches that flag new matching postings after each collection, summarised in the app with an optional desktop notification. |
 | **Leituras** (Reading) | An index of technical articles from RSS feeds you switch on, tagged with the same skills that drive the fit score. Opt-in, and it never republishes anyone's text. |
 | **Pipeline** | Kanban of applications by stage, with history and next step. Cards move by drag or by a stage selector that works on keyboard and touch. |
-| **Currículos** (Résumés) | A base résumé and versions tailored to a posting, in Portuguese or English, in four presentation templates, with a pre-send checklist, cover letter and PDF output. With an assistant configured, the tailored version comes out in one click from the job screen. Also stores PDFs you already have. |
+| **Currículos** (Résumés) | A base résumé and versions tailored to a posting, in Portuguese or English, built in a workshop where the A4 sheet redraws as you type, in seven templates (Harvard, FAANG and Designer among them), with an ATS checker that scores 0–100 with fixed rules and no AI, cover letter and PDF output. A finished résumé can be the starting point for the next posting. With an assistant configured, the tailored version comes out in one click from the job screen. Also stores PDFs you already have. |
 | **Roadmap** | Skill gaps computed over the postings *your own* searches brought in, with recommended projects and certifications. |
 | **Perfil** (Profile) | Single source of truth: feeds the scoring, the résumés and the roadmap. |
 | **Ajustes** (Settings) | Search terms, sources with error diagnostics, region preferences, desktop notifications and the optional AI assistant — API key or local model. |
@@ -274,7 +274,8 @@ farol/
   alerts.py       saved searches matched against the postings of each round
   reading.py      article feeds ingested as an index, with pruning
   markup.py       job description to readable HTML (escapes before marking up)
-  resume.py       résumé assembly, cover letter and checklist
+  resume.py       résumé assembly, templates and cover letter
+  ats.py          deterministic ATS checker (score and suggestions, no AI)
   ai.py           optional assistant: provider selection and system prompt
   localai.py      local model server: private address, catalogue and hardware
   insights.py     funnel metrics derived from the event history

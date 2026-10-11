@@ -31,6 +31,7 @@ from . import (
     agenda,
     ai,
     alerts,
+    ats,
     collect,
     db,
     insights,
@@ -114,6 +115,7 @@ templates = Jinja2Templates(directory=str(PKG_DIR / "templates"))
 templates.env.filters["skill"] = skills.display
 # markup.render escapa o texto antes de marcar, então o resultado entra sem autoescape
 templates.env.filters["descricao"] = lambda text: Markup(markup.render(text))
+templates.env.filters["ats_grade"] = lambda score: ats.grade(int(score))[0]
 
 
 # ------------------------------------------------------------------ helpers
@@ -748,6 +750,51 @@ def application_delete(app_id: int) -> RedirectResponse:
 # ------------------------------------------------------------------ currículos
 
 
+def _job_for(job_id: Any) -> dict[str, Any] | None:
+    if not job_id:
+        return None
+    row = db.one("SELECT * FROM jobs WHERE id = ?", (job_id,))
+    return job_dict(row) if row else None
+
+
+def _pipeline_jobs() -> list[dict[str, Any]]:
+    """Vagas que dá para escolher como alvo de um currículo: as do pipeline."""
+    return [dict(r) for r in db.query(
+        """SELECT j.id, j.title, j.company FROM jobs j
+           JOIN applications a ON a.job_id = j.id ORDER BY a.updated_at DESC LIMIT 30"""
+    )]
+
+
+def _ats_report(item: dict[str, Any], job: dict[str, Any] | None,
+                text: str | None = None) -> dict[str, Any]:
+    """Nota ATS de um currículo: pelo conteúdo no editor, pelo texto extraído no PDF."""
+    if item["kind"] == "arquivo":
+        if text is None:
+            text, _ = pdfs.extract_text(item["file"])
+        return ats.check_text(text, lang=item["lang"], job=job)
+    template = resume_mod.template_or_default(item.get("template"))
+    return ats.check(
+        item["data"], lang=item["lang"], job=job,
+        layout=resume_mod.layout(template)["columns"],
+        template_label=resume_mod.TEMPLATES[template]["label"],
+    )
+
+
+def _sheet_context(item: dict[str, Any]) -> dict[str, Any]:
+    """O que `_resume_sheet.html` precisa para desenhar a folha."""
+    template = resume_mod.template_or_default(item.get("template"))
+    return {
+        "assets": ASSETS_VERSION,
+        "resume": item,
+        "data": item["data"],
+        "lang": item["lang"],
+        "template": template,
+        "templates": resume_mod.TEMPLATES,
+        "sections": resume_mod.sections(item["lang"]),
+        "layout": resume_mod.layout(template),
+    }
+
+
 @app.get("/curriculos", response_class=HTMLResponse)
 def resumes_list(request: Request) -> HTMLResponse:
     rows = db.query(
@@ -756,11 +803,13 @@ def resumes_list(request: Request) -> HTMLResponse:
            ORDER BY r.updated_at DESC"""
     )
     items = [resume_dict(r) for r in rows]
-    jobs = [dict(r) for r in db.query(
-        """SELECT j.id, j.title, j.company FROM jobs j
-           JOIN applications a ON a.job_id = j.id ORDER BY a.updated_at DESC LIMIT 30"""
-    )]
-    return render(request, "resumes.html", nav="curriculos", resumes=items, jobs=jobs,
+    names = {item["id"]: item["name"] for item in items}
+    for item in items:
+        item["parent_name"] = names.get(item.get("parent_id"))
+        # o PDF só é lido quando alguém abre a página dele; aqui vale a nota guardada
+        item["ats"] = (item.get("ats_score") if item["kind"] == "arquivo"
+                       else _ats_report(item, _job_for(item["job_id"]))["score"])
+    return render(request, "resumes.html", nav="curriculos", resumes=items, jobs=_pipeline_jobs(),
                   langs=resume_mod.LANGS, resume_templates=resume_mod.TEMPLATES)
 
 
@@ -795,6 +844,66 @@ async def resume_create(request: Request) -> RedirectResponse:
     if lang == "en":
         msg += " Os textos vieram do perfil em português — traduza aqui dentro; a tradução fica só neste currículo."
     return go(f"/curriculos/{resume_id}", msg)
+
+
+@app.post("/curriculos/{resume_id}/derivar")
+async def resume_derive(request: Request, resume_id: int) -> RedirectResponse:
+    """Cria outro currículo a partir deste, opcionalmente apontado para outra vaga.
+
+    `nova_vaga` vazio mantém a vaga do original (cópia fiel); "nenhuma" tira a vaga;
+    um número troca o alvo — e aí competências e projetos se reordenam pelo que a
+    nova vaga pede, sem tocar no texto.
+    """
+    row = db.one("SELECT * FROM resumes WHERE id = ?", (resume_id,))
+    if row is None:
+        return go("/curriculos", "Currículo não encontrado.", "warn")
+    if row["kind"] == "arquivo":
+        return go(f"/curriculos/{resume_id}",
+                  "PDF enviado não tem conteúdo editável para copiar — crie um currículo no editor.", "warn")
+    base = resume_dict(row)
+    form = await request.form()
+    if "headline" in form:
+        # veio do botão dentro da oficina: a cópia parte do que está na tela, não do último salvamento
+        base = _apply_form(form, base)
+        _store(base)
+    escolha = str(form.get("nova_vaga") or "").strip()
+    if escolha == "":
+        job_id = base["job_id"]
+    elif escolha == "nenhuma":
+        job_id = None
+    else:
+        job_id = _int(escolha) or None
+    job = _job_for(job_id)
+    if job is None:
+        job_id = None
+
+    profile = db.get_profile()
+    lang = base["lang"]
+    if job_id == base["job_id"]:
+        data = {k: v for k, v in base["data"].items() if k != "ats_ai"}
+        letter = base["letter"]
+    else:
+        data = resume_mod.retarget(base["data"], job, profile.get("skills") or [])
+        # a carta do original fala com outra empresa: melhor um rascunho novo que um nome errado
+        letter = resume_mod.cover_letter(profile, job, lang) if job else base["letter"]
+
+    name = str(form.get("novo_nome") or "").strip()
+    if not name:
+        if job and job_id != base["job_id"]:
+            name = f"{job['title']} · {job['company']}" + (" (EN)" if lang == "en" else "")
+        else:
+            name = f"{base['name']} (cópia)"
+    application = db.one("SELECT id FROM applications WHERE job_id = ?", (job_id,)) if job_id else None
+    novo_id = db.execute(
+        """INSERT INTO resumes (name, job_id, application_id, lang, template, data, letter, parent_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        (name[:120], job_id, application["id"] if application else None, lang,
+         resume_mod.template_or_default(base["template"]), db.dumps(data), letter, resume_id),
+    )
+    msg = f"Criado a partir de “{base['name']}”. É um documento próprio: o original não muda."
+    if job and job_id != base["job_id"]:
+        msg += " Competências e projetos foram reordenados pela nova vaga; confira a aderência no verificador."
+    return go(f"/curriculos/{novo_id}", msg)
 
 
 @app.post("/curriculos/arquivo")
@@ -855,6 +964,9 @@ def resume_detail(request: Request, resume_id: int) -> HTMLResponse:
             job_row = db.one("SELECT * FROM jobs WHERE id = ?", (item["job_id"],))
             job = job_dict(job_row) if job_row else None
         text, warning = pdfs.extract_text(item["file"])
+        report = _ats_report(item, job, text)
+        if report["score"] != item.get("ats_score"):
+            db.execute("UPDATE resumes SET ats_score = ? WHERE id = ?", (report["score"], resume_id))
         found = skills.extract(text)
         owned = set(profile.get("skills") or [])
         wanted = (job or {}).get("score_data", {}).get("matched", []) + \
@@ -870,15 +982,15 @@ def resume_detail(request: Request, resume_id: int) -> HTMLResponse:
             resume_templates=resume_mod.TEMPLATES,
             text=text,
             warning=warning,
+            ats=report,
             found=found,
             novas=[s for s in found if s not in owned],
             cobertas=[s for s in wanted if s in found],
             faltantes=[s for s in wanted if s not in found],
         )
-    job = None
-    if item["job_id"]:
-        job_row = db.one("SELECT * FROM jobs WHERE id = ?", (item["job_id"],))
-        job = job_dict(job_row) if job_row else None
+    job = _job_for(item["job_id"])
+    parent = db.one("SELECT id, name FROM resumes WHERE id = ?", (item["parent_id"],)) \
+        if item.get("parent_id") else None
     return render(
         request,
         "resume_edit.html",
@@ -888,7 +1000,67 @@ def resume_detail(request: Request, resume_id: int) -> HTMLResponse:
         profile=profile,
         langs=resume_mod.LANGS,
         resume_templates=resume_mod.TEMPLATES,
-        checklist=resume_mod.checklist(item["data"]),
+        ats=_ats_report(item, job),
+        jobs=_pipeline_jobs(),
+        parent=dict(parent) if parent else None,
+    )
+
+
+def _apply_form(form: Any, item: dict[str, Any]) -> dict[str, Any]:
+    """O currículo com as edições do formulário aplicadas — sem gravar nada.
+
+    Salvar, a pré-visualização ao vivo e as ações de IA leem o formulário do
+    mesmo jeito: se cada uma tivesse a sua leitura, a folha mostraria uma coisa
+    e o banco guardaria outra.
+    """
+    data = dict(item["data"])
+    data["headline"] = str(form.get("headline") or "").strip()
+    data["summary"] = str(form.get("summary") or "").strip()
+    data["skills"] = list(form.getlist("skills"))
+
+    def items(prefix: str, fields: tuple[str, ...]) -> list[dict[str, Any]]:
+        """Lê os blocos numerados do formulário, mantendo só os marcados."""
+        keep = set(form.getlist(f"{prefix}_incluir"))
+        result = []
+        for index in form.getlist(f"{prefix}_indice"):
+            if index not in keep:
+                continue
+            entry: dict[str, Any] = {
+                field: str(form.get(f"{prefix}_{field}_{index}") or "").strip()
+                for field in fields
+            }
+            entry["bullets"] = _bullets(str(form.get(f"{prefix}_bullets_{index}") or ""))
+            # bloco recém-adicionado e deixado em branco não vira item vazio na folha
+            if any(entry[field] for field in fields) or entry["bullets"]:
+                result.append(entry)
+        return result
+
+    data["experience"] = items("exp", ("role", "org", "period"))
+    data["projects"] = items("proj", ("name", "url", "stack"))
+    data["education"] = [
+        {k: v for k, v in entry.items() if k != "bullets"}
+        for entry in items("edu", ("course", "school", "period", "note"))
+    ]
+    data["languages"] = [
+        {k: v for k, v in entry.items() if k != "bullets"}
+        for entry in items("idi", ("name", "level"))
+    ]
+    return {
+        **item,
+        "name": (str(form.get("name") or "").strip() or item["name"])[:120],
+        "lang": "en" if str(form.get("lang") or item["lang"]) == "en" else "pt",
+        "template": resume_mod.template_or_default(str(form.get("template") or item["template"])),
+        "data": data,
+        "letter": str(form.get("letter") or ""),
+    }
+
+
+def _store(item: dict[str, Any]) -> None:
+    db.execute(
+        """UPDATE resumes SET name=?, lang=?, template=?, data=?, letter=?,
+                              updated_at=datetime('now') WHERE id=?""",
+        (item["name"], item["lang"], item["template"], db.dumps(item["data"]),
+         item["letter"], item["id"]),
     )
 
 
@@ -906,47 +1078,30 @@ async def resume_save(request: Request, resume_id: int) -> RedirectResponse:
     if row["kind"] == "arquivo":
         return go(f"/curriculos/{resume_id}", "Este currículo é um PDF seu: o app não edita o arquivo.", "warn")
     form = await request.form()
-    data = resume_dict(row)["data"]
-    lang = "en" if str(form.get("lang") or row["lang"]) == "en" else "pt"
-
-    data["headline"] = str(form.get("headline") or "").strip()
-    data["summary"] = str(form.get("summary") or "").strip()
-    data["skills"] = list(form.getlist("skills"))
-
-    def items(prefix: str, fields: tuple[str, ...]) -> list[dict[str, Any]]:
-        """Lê os blocos numerados do formulário, mantendo só os marcados."""
-        keep = set(form.getlist(f"{prefix}_incluir"))
-        result = []
-        for index in form.getlist(f"{prefix}_indice"):
-            if index not in keep:
-                continue
-            entry: dict[str, Any] = {
-                field: str(form.get(f"{prefix}_{field}_{index}") or "").strip()
-                for field in fields
-            }
-            entry["bullets"] = _bullets(str(form.get(f"{prefix}_bullets_{index}") or ""))
-            result.append(entry)
-        return result
-
-    data["experience"] = items("exp", ("role", "org", "period"))
-    data["projects"] = items("proj", ("name", "url", "stack"))
-    data["education"] = [
-        {k: v for k, v in entry.items() if k != "bullets"}
-        for entry in items("edu", ("course", "school", "period", "note"))
-    ]
-    data["languages"] = [
-        {k: v for k, v in entry.items() if k != "bullets"}
-        for entry in items("idi", ("name", "level"))
-    ]
-
-    template = resume_mod.template_or_default(str(form.get("template") or row["template"]))
-    db.execute(
-        """UPDATE resumes SET name=?, lang=?, template=?, data=?, letter=?,
-                              updated_at=datetime('now') WHERE id=?""",
-        (str(form.get("name") or row["name"])[:120], lang, template, db.dumps(data),
-         str(form.get("letter") or ""), resume_id),
-    )
+    _store(_apply_form(form, resume_dict(row)))
+    if form.get("depois") == "imprimir":
+        return go(f"/curriculos/{resume_id}/imprimir")
     return go(f"/curriculos/{resume_id}", "Currículo salvo.")
+
+
+@app.post("/curriculos/{resume_id}/ao-vivo")
+async def resume_live(request: Request, resume_id: int) -> JSONResponse:
+    """A folha e a nota ATS do que está digitado agora, sem salvar.
+
+    A oficina chama isto a cada pausa na digitação. O HTML vem do mesmo template
+    da impressão, então o que aparece ao lado do formulário é o que sai no PDF.
+    """
+    row = db.one("SELECT * FROM resumes WHERE id = ?", (resume_id,))
+    if row is None or row["kind"] == "arquivo":
+        return JSONResponse({"erro": "Currículo não encontrado."}, status_code=404)
+    item = _apply_form(await request.form(), resume_dict(row))
+    report = _ats_report(item, _job_for(item["job_id"]))
+    return JSONResponse({
+        "sheet": templates.get_template("_resume_sheet.html").render(_sheet_context(item)),
+        "ats": templates.get_template("_ats.html").render(ats=report, lang=item["lang"]),
+        "score": report["score"],
+        "grade": report["grade"],
+    })
 
 
 @app.post("/curriculos/{resume_id}/reconstruir")
@@ -979,18 +1134,7 @@ def _resume_sheet(request: Request, resume_id: int, *, embed: bool) -> HTMLRespo
         return go(f"/curriculos/{resume_id}", "Este currículo já é um PDF — use “Abrir”.", "warn")  # type: ignore[return-value]
     item = resume_dict(row)
     return templates.TemplateResponse(
-        request,
-        "resume_print.html",
-        {
-            "assets": ASSETS_VERSION,
-            "resume": item,
-            "data": item["data"],
-            "lang": item["lang"],
-            "template": resume_mod.template_or_default(item.get("template")),
-            "templates": resume_mod.TEMPLATES,
-            "sections": resume_mod.sections(item["lang"]),
-            "embed": embed,
-        },
+        request, "resume_print.html", {**_sheet_context(item), "embed": embed}
     )
 
 
@@ -1015,10 +1159,12 @@ async def resume_ai(request: Request, resume_id: int) -> RedirectResponse:
     form = await request.form()
     action = str(form.get("acao") or "")
     item = resume_dict(row)
-    job = None
-    if item["job_id"]:
-        job_row = db.one("SELECT * FROM jobs WHERE id = ?", (item["job_id"],))
-        job = job_dict(job_row) if job_row else None
+    if "headline" in form:
+        # o botão está dentro do formulário do editor: grava o que foi digitado
+        # antes de a IA reescrever por cima, senão a edição some no redirecionamento
+        item = _apply_form(form, item)
+        _store(item)
+    job = _job_for(item["job_id"])
     try:
         if action == "resumo":
             text = ai.tailor_summary(item["data"], job, item["lang"])
@@ -1056,12 +1202,58 @@ async def resume_ai(request: Request, resume_id: int) -> RedirectResponse:
     return go(f"/curriculos/{resume_id}", msg)
 
 
+@app.post("/curriculos/{resume_id}/ats-ia")
+async def resume_ats_ai(request: Request, resume_id: int) -> RedirectResponse:
+    """Leitura do currículo por IA, por cima do verificador de regras. Opcional.
+
+    A nota continua sendo a de `farol.ats`; o modelo recebe o que as regras já
+    apontaram e escreve só o que regra não enxerga. Sem assistente configurado
+    não há requisição nenhuma.
+    """
+    row = db.one("SELECT * FROM resumes WHERE id = ?", (resume_id,))
+    if row is None:
+        return go("/curriculos", "Currículo não encontrado.", "warn")
+    if not ai.available():
+        return go(f"/curriculos/{resume_id}",
+                  "A verificação com IA precisa de um assistente — modelo local ou API — ligado em Ajustes. "
+                  "O verificador de regras continua funcionando sem ele.", "warn")
+    item = resume_dict(row)
+    form = await request.form()
+    job = _job_for(item["job_id"])
+    if item["kind"] == "arquivo":
+        text, _ = pdfs.extract_text(item["file"])
+        if not text.strip():
+            return go(f"/curriculos/{resume_id}", "O PDF não tem texto legível para a IA analisar.", "warn")
+        contexto: dict[str, Any] = {"texto_do_pdf": text[:8000]}
+        report = _ats_report(item, job, text)
+    else:
+        if "headline" in form:
+            item = _apply_form(form, item)
+            _store(item)
+        contexto = {k: v for k, v in item["data"].items() if k not in ("ats_ai", "ai_bullets")}
+        report = _ats_report(item, job)
+    achados = [f"{fix['label']}: {fix['detail']}" for fix in report["fixes"][:8]]
+    try:
+        texto = await run_in_threadpool(
+            ai.ats_review, contexto, job, item["lang"], achados, report["score"]
+        )
+    except Exception as exc:  # noqa: BLE001 — provedor externo: a falha vira aviso, não erro 500
+        return go(f"/curriculos/{resume_id}", f"IA indisponível: {exc}", "warn")
+    quem = ai.describe()
+    item["data"]["ats_ai"] = {
+        "text": texto, "by": quem["label"], "model": quem["model"], "score": report["score"],
+    }
+    db.execute("UPDATE resumes SET data = ? WHERE id = ?", (db.dumps(item["data"]), resume_id))
+    return go(f"/curriculos/{resume_id}", f"Verificação com IA concluída por {quem['label']}.")
+
+
 @app.post("/curriculos/{resume_id}/excluir")
 def resume_delete(resume_id: int) -> RedirectResponse:
     row = db.one("SELECT file FROM resumes WHERE id = ?", (resume_id,))
     if row and row["file"]:
         pdfs.remove(row["file"])
     db.execute("DELETE FROM resumes WHERE id = ?", (resume_id,))
+    db.execute("UPDATE resumes SET parent_id = NULL WHERE parent_id = ?", (resume_id,))
     return go("/curriculos", "Currículo removido.")
 
 

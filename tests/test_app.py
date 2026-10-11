@@ -5,7 +5,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from farol import collect, db, sources
+from farol import ats, collect, db, sources
 from farol import resume as resume_mod
 from farol import skills as skills_mod
 from farol.app import app
@@ -645,9 +645,10 @@ def test_curriculo_nao_inventa_dados(perfil):
     assert data["name"] == "Ana Ribeiro"
     assert data["projects"][0]["name"] == "API de biblioteca"
     assert resume_mod.PLACEHOLDER in data["summary"]  # perfil sem resumo → marca o que falta
-    itens = {item["label"]: item["ok"] for item in resume_mod.checklist(data)}
-    assert itens["GitHub no cabeçalho"] is True
-    assert itens["Dois projetos com link"] is False
+    # e o verificador acusa o rascunho que ficou, em vez de deixar passar
+    pendentes = {fix["key"] for fix in ats.check(data)["fixes"]}
+    assert {"resumo", "pendencias"} <= pendentes
+    assert "codigo" not in pendentes  # o GitHub do perfil está no cabeçalho
 
 
 def test_carta_marca_o_que_falta(perfil):
@@ -1021,3 +1022,365 @@ def test_paginas_fecham_todas_as_divs(client, com_vagas, perfil):
         if html.count("<div") != html.count("</div>")
     }
     assert not desbalanceadas, f"<div> sem fechamento par: {desbalanceadas}"
+
+
+# ------------------------------------------------------- oficina de currículo
+
+
+def _novo_curriculo(client, **campos) -> int:
+    criar = client.post("/curriculos", data={"name": "CV", **campos}, follow_redirects=False)
+    return int(criar.headers["location"].split("/curriculos/")[1].split("?")[0])
+
+
+def _formulario(resume_id: int, **mudancas) -> dict:
+    """O formulário da oficina como o navegador o enviaria, a partir do que está salvo."""
+    linha = db.one("SELECT * FROM resumes WHERE id = ?", (resume_id,))
+    data = db.loads(linha["data"], {})
+    form: dict = {
+        "name": linha["name"], "lang": linha["lang"], "template": linha["template"],
+        "headline": data["headline"], "summary": data["summary"], "skills": data["skills"],
+        "letter": linha["letter"],
+    }
+    for prefixo, chave, campos in (
+        ("exp", "experience", ("role", "org", "period")),
+        ("proj", "projects", ("name", "url", "stack")),
+        ("edu", "education", ("course", "school", "period", "note")),
+        ("idi", "languages", ("name", "level")),
+    ):
+        indices = [str(i) for i in range(len(data[chave]))]
+        form[f"{prefixo}_indice"] = indices
+        form[f"{prefixo}_incluir"] = list(indices)
+        for i, item in enumerate(data[chave]):
+            for campo in campos:
+                form[f"{prefixo}_{campo}_{i}"] = item.get(campo, "")
+            if "bullets" in item:
+                form[f"{prefixo}_bullets_{i}"] = "\n".join(item["bullets"])
+    form.update(mudancas)
+    return form
+
+
+@pytest.mark.parametrize("modelo", ["harvard", "faang", "designer"])
+def test_padroes_conhecidos_de_curriculo(client, perfil, modelo):
+    resume_id = _novo_curriculo(client, template=modelo)
+    folha = client.get(f"/curriculos/{resume_id}/imprimir").text
+    assert f'class="sheet t-{modelo}"' in folha
+    assert "Ana Ribeiro" in folha and "API de biblioteca" in folha
+
+
+def test_harvard_poe_formacao_antes_dos_projetos_e_sobrio_depois(client, perfil):
+    harvard = client.get(f"/curriculos/{_novo_curriculo(client, template='harvard')}/imprimir").text
+    sobrio = client.get(f"/curriculos/{_novo_curriculo(client, template='sober')}/imprimir").text
+    assert harvard.index("<h2>Formação</h2>") < harvard.index("<h2>Projetos</h2>")
+    assert sobrio.index("<h2>Projetos</h2>") < sobrio.index("<h2>Formação</h2>")
+
+
+def test_designer_e_o_unico_de_duas_colunas_e_o_verificador_avisa(client, perfil):
+    assert [k for k in resume_mod.TEMPLATES if resume_mod.layout(k)["columns"] == "duas-colunas"] == ["designer"]
+    resume_id = _novo_curriculo(client, template="designer")
+    assert 'class="cols"' in client.get(f"/curriculos/{resume_id}/imprimir").text
+    assert "usa duas colunas" in client.get(f"/curriculos/{resume_id}").text
+
+
+def test_todo_modelo_mostra_todas_as_secoes(perfil):
+    todas = set(resume_mod.DEFAULT_ORDER)
+    for codigo in resume_mod.TEMPLATES:
+        desenho = resume_mod.layout(codigo)
+        assert set(desenho["order"]) | set(desenho["side"]) == todas, codigo
+        assert not set(desenho["order"]) & set(desenho["side"]), codigo
+
+
+def test_trocar_para_modelo_novo_nao_muda_o_conteudo(client, perfil):
+    resume_id = _novo_curriculo(client)
+    antes = db.loads(db.one("SELECT data FROM resumes WHERE id = ?", (resume_id,))["data"], {})
+    client.post(f"/curriculos/{resume_id}", data=_formulario(resume_id, template="designer"),
+                follow_redirects=False)
+    linha = db.one("SELECT template, data FROM resumes WHERE id = ?", (resume_id,))
+    assert linha["template"] == "designer"
+    assert db.loads(linha["data"], {}) == antes
+
+
+def test_folha_ao_vivo_mostra_a_edicao_sem_gravar(client, perfil):
+    resume_id = _novo_curriculo(client)
+    antes = dict(db.one("SELECT * FROM resumes WHERE id = ?", (resume_id,)))
+
+    resposta = client.post(
+        f"/curriculos/{resume_id}/ao-vivo",
+        data=_formulario(resume_id, summary="Resumo digitado agora.", template="faang", lang="en"),
+    )
+    assert resposta.status_code == 200
+    corpo = resposta.json()
+    assert "Resumo digitado agora." in corpo["sheet"]
+    assert 'class="sheet t-faang"' in corpo["sheet"]
+    assert "<h2>Summary</h2>" in corpo["sheet"]
+    assert corpo["sheet"].lstrip().startswith("<article")  # só a folha, sem a página em volta
+    assert 0 <= corpo["score"] <= 100
+    assert f'data-ats-score="{corpo["score"]}"' in corpo["ats"]
+
+    assert dict(db.one("SELECT * FROM resumes WHERE id = ?", (resume_id,))) == antes
+
+
+def test_nota_ao_vivo_cai_ao_escolher_duas_colunas(client, perfil):
+    resume_id = _novo_curriculo(client)
+    # resumo escrito de verdade: com o [preencher] do rascunho a nota fica travada nos dois casos
+    resumo = "Desenvolvedora back-end com projetos publicados em Python, FastAPI e PostgreSQL."
+    uma = client.post(f"/curriculos/{resume_id}/ao-vivo",
+                      data=_formulario(resume_id, summary=resumo)).json()
+    duas = client.post(f"/curriculos/{resume_id}/ao-vivo",
+                       data=_formulario(resume_id, summary=resumo, template="designer")).json()
+    assert duas["score"] < uma["score"]
+    assert "usa duas colunas" in duas["ats"]
+
+
+def test_folha_ao_vivo_escapa_o_que_foi_digitado(client, perfil):
+    resume_id = _novo_curriculo(client)
+    corpo = client.post(f"/curriculos/{resume_id}/ao-vivo",
+                        data=_formulario(resume_id, summary="<script>alert(1)</script>")).json()
+    assert "<script>" not in corpo["sheet"]
+    assert "&lt;script&gt;" in corpo["sheet"]
+
+
+def test_folha_ao_vivo_de_curriculo_inexistente_ou_pdf_devolve_404(client, perfil):
+    assert client.post("/curriculos/9999/ao-vivo", data={}).status_code == 404
+    envio = client.post(
+        "/curriculos/arquivo", data={"name": "CV"},
+        files={"arquivo": ("cv.pdf", _pdf_bytes("Ana Ribeiro"), "application/pdf")},
+        follow_redirects=False,
+    )
+    pdf_id = int(envio.headers["location"].split("/curriculos/")[1].split("?")[0])
+    assert client.post(f"/curriculos/{pdf_id}/ao-vivo", data={}).status_code == 404
+
+
+def test_bloco_adicionado_na_oficina_e_salvo_e_o_vazio_e_descartado(client, perfil):
+    resume_id = _novo_curriculo(client)
+    form = _formulario(resume_id)
+    form["exp_indice"] = ["nabc", "nvazio"]
+    form["exp_incluir"] = ["nabc", "nvazio"]
+    form.update({
+        "exp_role_nabc": "Estagiária", "exp_org_nabc": "Acme", "exp_period_nabc": "2025 – atual",
+        "exp_bullets_nabc": "Reduzi o tempo de build de 9 para 3 minutos",
+        "exp_role_nvazio": "", "exp_org_nvazio": "", "exp_period_nvazio": "", "exp_bullets_nvazio": "",
+    })
+    client.post(f"/curriculos/{resume_id}", data=form, follow_redirects=False)
+    salvo = db.loads(db.one("SELECT data FROM resumes WHERE id = ?", (resume_id,))["data"], {})
+    assert salvo["experience"] == [{
+        "role": "Estagiária", "org": "Acme", "period": "2025 – atual",
+        "bullets": ["Reduzi o tempo de build de 9 para 3 minutos"],
+    }]
+    assert db.get_profile()["experience"] == []  # o Perfil continua como estava
+
+
+def test_salvar_e_gerar_pdf_leva_para_a_folha(client, perfil):
+    resume_id = _novo_curriculo(client)
+    resposta = client.post(f"/curriculos/{resume_id}",
+                           data=_formulario(resume_id, depois="imprimir"), follow_redirects=False)
+    assert resposta.headers["location"] == f"/curriculos/{resume_id}/imprimir"
+
+
+def test_duplicar_cria_documento_proprio(client, perfil):
+    original = _novo_curriculo(client, template="harvard", lang="en")
+    client.post(f"/curriculos/{original}",
+                data=_formulario(original, summary="Texto lapidado à mão."), follow_redirects=False)
+
+    resposta = client.post(f"/curriculos/{original}/derivar", follow_redirects=False)
+    copia = int(resposta.headers["location"].split("/curriculos/")[1].split("?")[0])
+    assert copia != original
+    linha = db.one("SELECT * FROM resumes WHERE id = ?", (copia,))
+    assert (linha["parent_id"], linha["template"], linha["lang"]) == (original, "harvard", "en")
+    assert linha["name"] == "CV (cópia)"
+    assert db.loads(linha["data"], {})["summary"] == "Texto lapidado à mão."
+
+    # mexer na cópia não mexe no original
+    client.post(f"/curriculos/{copia}", data=_formulario(copia, summary="Outro texto."), follow_redirects=False)
+    assert db.loads(db.one("SELECT data FROM resumes WHERE id = ?", (original,))["data"], {})["summary"] \
+        == "Texto lapidado à mão."
+    assert "criado a partir de" in client.get(f"/curriculos/{copia}").text
+
+
+def test_derivar_para_uma_vaga_reordena_sem_tocar_no_texto(client, com_vagas, perfil):
+    original = _novo_curriculo(client)
+    client.post(f"/curriculos/{original}",
+                data=_formulario(original, summary="Texto lapidado à mão."), follow_redirects=False)
+    job = dict(db.query("SELECT * FROM jobs ORDER BY score DESC LIMIT 1")[0])
+
+    resposta = client.post(f"/curriculos/{original}/derivar",
+                           data={"nova_vaga": str(job["id"])}, follow_redirects=False)
+    copia = int(resposta.headers["location"].split("/curriculos/")[1].split("?")[0])
+    linha = db.one("SELECT * FROM resumes WHERE id = ?", (copia,))
+    data = db.loads(linha["data"], {})
+
+    assert linha["job_id"] == job["id"]
+    assert linha["name"].startswith(job["title"])
+    assert data["summary"] == "Texto lapidado à mão."
+    assert data["target"]["title"] == job["title"]
+    assert data["headline"] == "Desenvolvedora back-end júnior"  # o cargo fica: quem decide é você
+    destaque = data["highlight_skills"]
+    assert data["skills"][: len(destaque)] == destaque
+    assert sorted(data["skills"]) == sorted(perfil["skills"])
+    assert job["company"] in linha["letter"]
+    # e o original segue sem vaga
+    assert db.one("SELECT job_id FROM resumes WHERE id = ?", (original,))["job_id"] is None
+
+
+def test_derivar_leva_o_que_esta_na_tela_e_nao_foi_salvo(client, perfil):
+    original = _novo_curriculo(client)
+    form = _formulario(original, summary="Digitado e ainda não salvo.", novo_nome="Versão B")
+    resposta = client.post(f"/curriculos/{original}/derivar", data=form, follow_redirects=False)
+    copia = int(resposta.headers["location"].split("/curriculos/")[1].split("?")[0])
+    linha = db.one("SELECT * FROM resumes WHERE id = ?", (copia,))
+    assert linha["name"] == "Versão B"
+    assert db.loads(linha["data"], {})["summary"] == "Digitado e ainda não salvo."
+
+
+def test_derivar_de_pdf_e_recusado(client, perfil):
+    envio = client.post(
+        "/curriculos/arquivo", data={"name": "CV"},
+        files={"arquivo": ("cv.pdf", _pdf_bytes("Ana Ribeiro"), "application/pdf")},
+        follow_redirects=False,
+    )
+    pdf_id = int(envio.headers["location"].split("/curriculos/")[1].split("?")[0])
+    client.post(f"/curriculos/{pdf_id}/derivar", follow_redirects=False)
+    assert db.one("SELECT COUNT(*) AS n FROM resumes")["n"] == 1
+
+
+def test_excluir_o_original_nao_leva_a_copia(client, perfil):
+    original = _novo_curriculo(client)
+    resposta = client.post(f"/curriculos/{original}/derivar", follow_redirects=False)
+    copia = int(resposta.headers["location"].split("/curriculos/")[1].split("?")[0])
+    client.post(f"/curriculos/{original}/excluir", follow_redirects=False)
+    assert db.one("SELECT parent_id FROM resumes WHERE id = ?", (copia,))["parent_id"] is None
+    assert client.get(f"/curriculos/{copia}").status_code == 200
+    assert client.get("/curriculos").status_code == 200
+
+
+def test_retarget_nao_altera_a_origem_e_mede_o_que_falta_contra_o_perfil(perfil):
+    origem = resume_mod.build(perfil, None)
+    origem["skills"] = ["sql", "python"]  # docker desmarcado neste currículo
+    origem["ats_ai"] = {"text": "parecer antigo"}
+    copia_da_origem = db.loads(db.dumps(origem), {})
+    vaga = {"title": "Dev", "company": "X", "description": "Python, Docker, Kubernetes", "tags": []}
+
+    novo = resume_mod.retarget(origem, vaga, perfil["skills"])
+
+    assert origem == copia_da_origem
+    assert novo["skills"] == ["python", "sql"]
+    assert novo["missing_skills"] == ["kubernetes"]  # docker está no Perfil: não é "falta"
+    assert "ats_ai" not in novo
+
+
+def test_lista_mostra_a_nota_ats_de_cada_curriculo(client, perfil):
+    resume_id = _novo_curriculo(client)
+    linha = resume_dict_de(resume_id)
+    nota = ats.check(linha["data"], lang="pt")["score"]
+    pagina = client.get("/curriculos").text
+    assert f'class="ats-badge g-{ats.grade(nota)[0]}"' in pagina
+    assert f">{nota}<span" in pagina
+
+
+def resume_dict_de(resume_id: int) -> dict:
+    linha = dict(db.one("SELECT * FROM resumes WHERE id = ?", (resume_id,)))
+    linha["data"] = db.loads(linha["data"], {})
+    return linha
+
+
+def test_oficina_mostra_nota_e_sugestoes_sem_ia(client, perfil, monkeypatch):
+    from farol import ai
+
+    def proibido(*args, **kwargs):
+        raise AssertionError("o verificador de regras não pode chamar modelo nenhum")
+
+    monkeypatch.setattr(ai, "complete", proibido)
+    resume_id = _novo_curriculo(client)
+    pagina = client.get(f"/curriculos/{resume_id}").text
+    assert "data-ats-score=" in pagina
+    assert "O que mais devolve ponto" in pagina
+    assert "Verificar com IA" not in pagina          # sem assistente, o botão não existe
+    assert "ligue um assistente" in pagina           # e a tela diz como ligar
+
+
+def test_pdf_enviado_ganha_nota_ats_e_ela_aparece_na_lista(client, perfil):
+    envio = client.post(
+        "/curriculos/arquivo", data={"name": "CV pronto"},
+        files={"arquivo": ("cv.pdf", _pdf_bytes("Ana Ribeiro", "ana@exemplo.com", "Python e Docker"),
+                           "application/pdf")},
+        follow_redirects=False,
+    )
+    pdf_id = int(envio.headers["location"].split("/curriculos/")[1].split("?")[0])
+    assert "data-ats-score=" in client.get(f"/curriculos/{pdf_id}").text
+    nota = db.one("SELECT ats_score FROM resumes WHERE id = ?", (pdf_id,))["ats_score"]
+    assert isinstance(nota, int)
+    assert f">{nota}<span" in client.get("/curriculos").text
+
+
+def test_verificacao_com_ia_sem_assistente_avisa_e_nao_chama_nada(client, perfil, monkeypatch):
+    from farol import ai
+
+    monkeypatch.setattr(ai, "complete", lambda *a, **k: pytest.fail("não há assistente configurado"))
+    resume_id = _novo_curriculo(client)
+    resposta = client.post(f"/curriculos/{resume_id}/ats-ia", follow_redirects=False)
+    assert "tone=warn" in resposta.headers["location"]
+    assert "ats_ai" not in resume_dict_de(resume_id)["data"]
+
+
+def test_verificacao_com_ia_complementa_as_regras_e_guarda_o_parecer(client, perfil, monkeypatch):
+    from farol import ai
+
+    db.set_setting("ai_provider", "local")
+    db.set_setting("local_ai_model", "qwen2.5:7b")
+    pedidos: list[str] = []
+
+    def modelo(prompt: str, max_tokens: int = 0) -> str:
+        pedidos.append(prompt)
+        return "Marcadores fracos:\n- Subi com Docker → Publiquei a imagem em [preencher]"
+
+    monkeypatch.setattr(ai, "complete", modelo)
+    resume_id = _novo_curriculo(client)
+
+    resposta = client.post(f"/curriculos/{resume_id}/ats-ia",
+                           data=_formulario(resume_id, headline="Dev Python"), follow_redirects=False)
+    assert "tone=warn" not in resposta.headers["location"]
+    nota = ats.check(resume_dict_de(resume_id)["data"])["score"]
+
+    # o modelo recebe o que as regras já apontaram e a ordem de não dar nota
+    assert len(pedidos) == 1
+    assert f"nota {nota}/100" in pedidos[0]
+    assert "Não repita esses pontos e não dê nota" in pedidos[0]
+    assert "Nada por preencher" in pedidos[0]
+
+    salvo = resume_dict_de(resume_id)["data"]
+    assert salvo["headline"] == "Dev Python"  # a edição na tela foi gravada antes
+    assert salvo["ats_ai"]["by"] == "Modelo local"
+    assert salvo["ats_ai"]["model"] == "qwen2.5:7b"
+    pagina = client.get(f"/curriculos/{resume_id}").text
+    assert "Publiquei a imagem em [preencher]" in pagina
+    assert "Refazer a verificação com IA" in pagina
+    # o parecer não entra na folha nem volta para o modelo na próxima rodada
+    assert "Marcadores fracos" not in client.get(f"/curriculos/{resume_id}/imprimir").text
+    client.post(f"/curriculos/{resume_id}/ats-ia", follow_redirects=False)
+    assert "Publiquei a imagem em" not in pedidos[1]
+
+
+def test_falha_da_ia_na_verificacao_vira_aviso(client, perfil, monkeypatch):
+    from farol import ai
+
+    db.set_setting("ai_provider", "local")
+    db.set_setting("local_ai_model", "qwen2.5:7b")
+
+    def fora_do_ar(prompt: str, max_tokens: int = 0) -> str:
+        raise RuntimeError("servidor local não respondeu")
+
+    monkeypatch.setattr(ai, "complete", fora_do_ar)
+    resume_id = _novo_curriculo(client)
+    resposta = client.post(f"/curriculos/{resume_id}/ats-ia", follow_redirects=False)
+    assert resposta.status_code == 303
+    assert "tone=warn" in resposta.headers["location"]
+    assert client.get(f"/curriculos/{resume_id}").status_code == 200
+
+
+def test_banco_antigo_ganha_as_colunas_da_oficina(perfil):
+    conn = db.connect()
+    conn.execute("ALTER TABLE resumes DROP COLUMN parent_id")
+    conn.execute("ALTER TABLE resumes DROP COLUMN ats_score")
+    conn.commit()
+    db.bootstrap()
+    colunas = {row["name"] for row in db.query("PRAGMA table_info(resumes)")}
+    assert {"parent_id", "ats_score"} <= colunas

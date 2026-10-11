@@ -8,4 +8,5 @@ quando a resposta foi **não fazer** alguma coisa.
 |---|---------|-------|
 | [1](0001-linkedin-como-fonte.md) | LinkedIn não entra como fonte de vagas | [#10](https://github.com/Bappoz/farol/issues/10) |
 | [2](0002-agregador-de-leituras.md) | Agregador de leituras: só feed, só índice, só a pedido | [#9](https://github.com/Bappoz/farol/issues/9) |
+| [4](0004-oficina-e-verificador-ats.md) | Oficina de currículo: folha desenhada no servidor, nota ATS por regra e IA só como segunda leitura | [#17](https://github.com/Bappoz/Farol/issues/17) |
 | [3](0003-ia-local.md) | Assistente de IA local: endereço privado, API compatível, nada instalado | [#15](https://github.com/Bappoz/Farol/issues/15) |
